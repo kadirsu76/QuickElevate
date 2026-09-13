@@ -7,11 +7,18 @@ struct ManagedConfiguration {
     let apiBaseURL: URL
 
     static func load() throws -> ManagedConfiguration {
+        let domainName = "com.quickelevate.app"
         let defaults = UserDefaults.standard
-        guard let tenantId = defaults.string(forKey: "TenantId"),
-              let nativeClientId = defaults.string(forKey: "NativeClientId"),
-              let apiAudience = defaults.string(forKey: "ApiAudience"),
-              let apiBaseURLString = defaults.string(forKey: "ApiBaseUrl"),
+        let managedValues = defaults.persistentDomain(forName: domainName) ?? [:]
+
+        func value(_ key: String) -> String? {
+            managedValues[key] as? String ?? defaults.string(forKey: key)
+        }
+
+        guard let tenantId = value("TenantId"),
+              let nativeClientId = value("NativeClientId"),
+              let apiAudience = value("ApiAudience"),
+              let apiBaseURLString = value("ApiBaseUrl"),
               let apiBaseURL = URL(string: apiBaseURLString) else {
             throw ConfigurationError.missingManagedSettings
         }

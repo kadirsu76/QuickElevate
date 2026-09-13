@@ -104,7 +104,7 @@ final class QuickElevateAgent: NSObject, NSApplicationDelegate, UNUserNotificati
 
         let confirm = NSAlert()
         confirm.messageText = "Yonetici Yetkisi Iste"
-        confirm.informativeText = "Bu bilgisayarda 60 saniyeligine yonetici yetkisi almak istiyor musunuz?"
+        confirm.informativeText = "Bu bilgisayarda politika tarafindan onaylanan kisa sureli yonetici yetkisi almak istiyor musunuz?"
         confirm.alertStyle = .warning
         confirm.addButton(withTitle: "Yetki Iste")
         confirm.addButton(withTitle: "Iptal")
@@ -119,5 +119,14 @@ final class QuickElevateAgent: NSObject, NSApplicationDelegate, UNUserNotificati
     private func requestFlow() async {
         await model.requestElevation()
         refreshStatusUI()
+
+        if !model.isAdmin, model.statusText != "Hazir" {
+            let error = NSAlert()
+            error.messageText = "Yonetici Yetkisi Verilmedi"
+            error.informativeText = model.statusText
+            error.alertStyle = .warning
+            error.addButton(withTitle: "Tamam")
+            error.runModal()
+        }
     }
 }

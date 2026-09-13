@@ -15,15 +15,22 @@ PRODUCT_BUILD_DIR="$DIST_DIR/productbuild"
 
 APP_BIN="$ROOT_DIR/.build/arm64-apple-macosx/release/QuickElevateApp"
 HELPER_BIN="$ROOT_DIR/.build/arm64-apple-macosx/release/QuickElevateHelper"
+MSAL_FRAMEWORK_SRC="$ROOT_DIR/.build/arm64-apple-macosx/release/MSAL.framework"
 
 if [[ ! -x "$APP_BIN" || ! -x "$HELPER_BIN" ]]; then
   echo "Release build yok. once 'swift build -c release' calistirin."
   exit 1
 fi
 
+if [[ ! -d "$MSAL_FRAMEWORK_SRC" ]]; then
+  echo "MSAL.framework bulunamadi. once 'swift build -c release' calistirin."
+  exit 1
+fi
+
 rm -rf "$DIST_DIR"
 mkdir -p "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/MacOS"
 mkdir -p "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/Resources"
+mkdir -p "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/Frameworks"
 mkdir -p "$PAYLOAD_ROOT/usr/local/libexec"
 mkdir -p "$PAYLOAD_ROOT/Library/LaunchDaemons"
 mkdir -p "$PKG_BUILD_DIR"
@@ -31,6 +38,9 @@ mkdir -p "$PRODUCT_BUILD_DIR"
 
 install -m 755 "$APP_BIN" "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/MacOS/QuickElevateApp"
 install -m 644 "$ROOT_DIR/deploy/QuickElevate.Info.plist" "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/Info.plist"
+cp -R "$MSAL_FRAMEWORK_SRC" "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/Frameworks/MSAL.framework"
+install_name_tool -add_rpath '@executable_path/../Frameworks' "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/MacOS/QuickElevateApp"
+codesign --force --deep --sign - "$PAYLOAD_ROOT/Applications/QuickElevate.app"
 install -m 755 "$HELPER_BIN" "$PAYLOAD_ROOT/usr/local/libexec/QuickElevateHelper"
 install -m 644 "$ROOT_DIR/deploy/com.quickelevate.helper.plist" "$PAYLOAD_ROOT/Library/LaunchDaemons/com.quickelevate.helper.plist"
 

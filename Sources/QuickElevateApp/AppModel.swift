@@ -87,7 +87,8 @@ final class AppModel {
             }
         } catch {
             statusText = error.localizedDescription
-            await refreshStatus()
+            applyDockIconAndBadge()
+            notifyStatusChanged()
         }
     }
 
