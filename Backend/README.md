@@ -21,7 +21,9 @@ Copy `QuickElevate.Api/local.settings.example.json` outside source control for l
 
 ## Required tenant permissions
 
-The Function Managed Identity needs Microsoft Graph application permission `GroupMember.ReadBasic.All` and tenant admin consent. Do not grant Graph write permissions.
+The Function Managed Identity needs Microsoft Graph application permission `GroupMember.Read.All` and tenant admin consent. Do not grant Graph write permissions.
+
+Run `Infrastructure/azure/setup-quickelevate.ps1` after infrastructure deployment. It creates the single-tenant API and native macOS app registrations, configures the `Elevation.Request` delegated scope and tenant-wide consent, enables Easy Auth, writes the non-secret client identifiers to Function settings, and assigns the Managed Identity Graph read permission.
 
 ## Current alpha limitation
 

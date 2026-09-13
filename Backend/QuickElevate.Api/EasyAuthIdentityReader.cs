@@ -24,10 +24,21 @@ public static class EasyAuthIdentityReader
         var tenantId = Find(claims, "tid", "http://schemas.microsoft.com/identity/claims/tenantid");
         var objectId = Find(claims, "oid", "http://schemas.microsoft.com/identity/claims/objectidentifier");
         var clientId = Find(claims, "azp", "appid");
+        var scope = Find(claims, "scp", "http://schemas.microsoft.com/identity/claims/scope");
 
         if (!string.Equals(tenantId, config.TenantId, StringComparison.OrdinalIgnoreCase))
         {
             throw new UnauthorizedAccessException("Token tenant is not allowed.");
+        }
+
+        if (!string.Equals(clientId, config.NativeClientId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Token client is not allowed.");
+        }
+
+        if (!scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("Elevation.Request", StringComparer.Ordinal))
+        {
+            throw new UnauthorizedAccessException("Token does not contain the required scope.");
         }
 
         return new CallerIdentity(tenantId, objectId, clientId);

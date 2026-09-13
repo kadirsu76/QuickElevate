@@ -25,6 +25,7 @@ QuickElevate macOS app
 - Use a private Azure backend reachable only through a corporate VPN, Global Secure Access, or any other network path that can route private traffic and resolve private DNS.
 - Keep the backend off the public internet with an Azure Private Endpoint and disabled public network access.
 - Authenticate the requesting user with Microsoft Entra ID.
+- Require an existing Platform SSO/Company Portal session and never present an Entra sign-in UI from QuickElevate.
 - Check the user against one configured Entra security group.
 - Support either direct or transitive group membership. `Transitive` is the default deployment option.
 - Return an asymmetric, short-lived, single-use signed grant rather than an untrusted `allowed: true` response.
@@ -101,6 +102,7 @@ The profile templates and detailed instructions are in [deploy](deploy/) and [In
 - [Threat model](docs/threat-model.md)
 - [Azure deployment](docs/azure-deployment.md)
 - [VPN and Global Secure Access](docs/vpn-gsa-setup.md)
+- [Platform SSO token policy](docs/psso.md)
 - [Intune deployment](docs/intune-deployment.md)
 - [Alpha release plan](docs/release-plan.md)
 - [Security reporting](SECURITY.md)

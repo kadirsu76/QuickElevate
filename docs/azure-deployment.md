@@ -27,22 +27,27 @@ The quick deployment creates a dedicated VNet (`10.250.0.0/16`) and Private Endp
 
 The Azure subscription tenant ID is automatically used for Key Vault and the backend's `TENANT_ID` setting. The Function App is configured with `publicNetworkAccess=Disabled`. The deployment does not create a public fallback API path.
 
-## Post-deployment Tenant Tasks
+## Post-deployment Bootstrap
 
-1. Deploy the Function code to the provisioned Function App from a private-capable CI runner or a network path that reaches the SCM endpoint.
-2. Configure App Service Authentication/Easy Auth for the backend API app registration.
-3. Require authentication, return HTTP `401` for unauthenticated API calls, restrict the API to the configured tenant, and allow only the native macOS client ID.
-4. Grant the Function user-assigned Managed Identity Microsoft Graph application permission `GroupMember.ReadBasic.All`.
-5. Grant tenant admin consent for that application permission.
-6. The template gives the Function identity Key Vault Crypto User permission to sign with the generated key.
-7. Configure VPN/GSA route and private DNS forwarding. See [VPN and Global Secure Access](vpn-gsa-setup.md).
-8. Configure Conditional Access if the deployment requires compliant devices, MFA, or other Entra conditions.
+Run the repository bootstrap script once as a tenant administrator:
 
-No Graph write permission is required. Do not make the Managed Identity an owner or member of the target group.
+```powershell
+./Infrastructure/azure/setup-quickelevate.ps1 `
+  -rg rg-wd-quickelevate-p01 `
+  -app <functionAppName>
+```
+
+The script creates/reuses the single-tenant backend API and native macOS app registrations, creates the `Elevation.Request` delegated scope, grants tenant-wide native-client consent, enables Easy Auth, writes the native/API configuration to the Function App, and grants the user-assigned Managed Identity `GroupMember.Read.All`.
+
+No Graph write permission is granted to the Managed Identity. Do not make the Managed Identity an owner or member of the target group.
+
+Use `-PublishFunctionCode` only from a machine that can reach the Function deployment endpoint through the approved private network path and has .NET 8 installed.
+
+After the bootstrap, configure VPN/GSA route and private DNS forwarding. See [VPN and Global Secure Access](vpn-gsa-setup.md). Configure Conditional Access if the deployment requires compliant devices, MFA, or other Entra conditions.
 
 The deployment itself creates Azure RBAC role assignments for the Function identity. The operator running the template needs `Microsoft.Authorization/roleAssignments/write` at resource-group scope. A resource-group scoped `Owner`, `User Access Administrator`, or `Role Based Access Control Administrator` assignment is sufficient.
 
-The repository includes an idempotent Graph PowerShell helper for steps 4-5:
+The repository also includes a narrower idempotent Graph-only helper:
 
 ```powershell
 ./Infrastructure/azure/grant-managed-identity-graph-permission.ps1 -mi <managedIdentityPrincipalId>

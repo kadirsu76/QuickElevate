@@ -5,6 +5,7 @@
 - The Azure authorization API is deployed and reachable through the approved VPN/GSA path.
 - `privatelink.azurewebsites.net` resolves from managed Macs while connected to the approved network.
 - The Entra native-client registration and API registration are configured.
+- Platform SSO and the Microsoft Enterprise SSO plug-in/Company Portal are deployed before QuickElevate. Users without an existing PSSO session are denied; QuickElevate does not show an Entra sign-in flow.
 - The package is Developer ID signed and notarized before production deployment.
 
 ## Deployment Order

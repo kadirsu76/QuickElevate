@@ -12,8 +12,9 @@
 
 - Install .NET 8 SDK and Azure CLI/Bicep in CI; run backend build and Bicep validation.
 - Create Entra API and native-client registrations; configure Easy Auth.
-- Grant Managed Identity `GroupMember.ReadBasic.All` and tenant admin consent.
+- Grant Managed Identity `GroupMember.Read.All` and tenant admin consent.
 - Build the helper signed-grant verifier, nonce issuance, replay store, and local Entra-to-macOS account binding.
+- Connect the app to the private API using PSSO/MSAL silent-only token acquisition. Do not add an interactive Entra login fallback.
 - Remove the unconditional local `.grant(user, seconds)` helper operation.
 - Replace the socket transport with authenticated XPC or launchd socket activation.
 - Add unit and integration tests.

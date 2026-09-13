@@ -327,6 +327,6 @@
     "privateEndpointSubnetId": { "type": "string", "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('privateEndpointSubnetName'))]" },
     "managedIdentityPrincipalId": { "type": "string", "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]" },
     "managedIdentityClientId": { "type": "string", "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').clientId]" },
-    "requiredGraphPermission": { "type": "string", "value": "GroupMember.ReadBasic.All (application permission, tenant admin consent required)" }
+    "requiredGraphPermission": { "type": "string", "value": "GroupMember.Read.All (application permission, tenant admin consent required)" }
   }
 }

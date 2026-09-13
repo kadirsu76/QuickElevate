@@ -19,37 +19,37 @@ Connect-MgGraph -Scopes $requiredScopes -NoWelcome
 
 try {
     $managedIdentity = Get-MgServicePrincipal -ServicePrincipalId $ManagedIdentityPrincipalId
-    $graphServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
+    $graphServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'" -Property 'appRoles'
 
     if (-not $graphServicePrincipal) {
         throw 'Microsoft Graph service principal was not found in this tenant.'
     }
 
-    $groupMemberReadBasicRole = $graphServicePrincipal.AppRoles | Where-Object {
-        $_.Value -eq 'GroupMember.ReadBasic.All' -and $_.AllowedMemberTypes -contains 'Application'
+    $groupMemberReadRole = $graphServicePrincipal.AppRoles | Where-Object {
+        $_.Value -eq 'GroupMember.Read.All' -and $_.AllowedMemberTypes -contains 'Application'
     } | Select-Object -First 1
 
-    if (-not $groupMemberReadBasicRole) {
-        throw 'The Microsoft Graph application role GroupMember.ReadBasic.All was not found.'
+    if (-not $groupMemberReadRole) {
+        throw 'The Microsoft Graph application role GroupMember.Read.All was not found.'
     }
 
     $existingAssignment = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $managedIdentity.Id -All | Where-Object {
-            $_.ResourceId -eq $graphServicePrincipal.Id -and $_.AppRoleId -eq $groupMemberReadBasicRole.Id
+            $_.ResourceId -eq $graphServicePrincipal.Id -and $_.AppRoleId -eq $groupMemberReadRole.Id
     }
 
     if ($existingAssignment) {
-        Write-Host "No change: $($managedIdentity.DisplayName) already has GroupMember.ReadBasic.All." -ForegroundColor Yellow
+        Write-Host "No change: $($managedIdentity.DisplayName) already has GroupMember.Read.All." -ForegroundColor Yellow
         return
     }
 
     $assignment = @{
         PrincipalId = $managedIdentity.Id
         ResourceId  = $graphServicePrincipal.Id
-        AppRoleId   = $groupMemberReadBasicRole.Id
+        AppRoleId   = $groupMemberReadRole.Id
     }
 
     New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $managedIdentity.Id -BodyParameter $assignment | Out-Null
-    Write-Host "Granted GroupMember.ReadBasic.All to managed identity: $($managedIdentity.DisplayName)" -ForegroundColor Green
+    Write-Host "Granted GroupMember.Read.All to managed identity: $($managedIdentity.DisplayName)" -ForegroundColor Green
     Write-Host 'No Microsoft Graph write permissions were granted.' -ForegroundColor Green
 }
 finally {

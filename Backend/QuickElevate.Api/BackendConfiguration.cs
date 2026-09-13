@@ -10,6 +10,7 @@ public sealed class BackendConfiguration
     public string GrantIssuer => Required("GRANT_ISSUER");
     public string GrantAudience => Environment.GetEnvironmentVariable("GRANT_AUDIENCE") ?? "com.quickelevate.helper";
     public string KeyVaultKeyId => Required("KEY_VAULT_SIGNING_KEY_ID");
+    public string NativeClientId => Required("QUICK_ELEVATE_NATIVE_CLIENT_ID");
 
     private static string Required(string name) =>
         Environment.GetEnvironmentVariable(name) is { Length: > 0 } value

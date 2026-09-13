@@ -13,23 +13,26 @@ The quick deployment form requests only `securityGroupObjectId`. The Azure subsc
 
 The public repository has an ARM JSON copy in `azuredeploy.json`; the README **Deploy to Azure** button opens that file in the Azure portal. Keep `azuredeploy.json` synchronized with `main.bicep` after changes.
 
-## Post-deploy tenant administration
+## Post-deploy bootstrap
 
-1. Add Microsoft Graph `GroupMember.ReadBasic.All` as an **application** permission to the Function user-assigned Managed Identity.
-2. Grant tenant admin consent.
-3. Configure App Service Authentication/Easy Auth for the single-tenant API registration and allow only the native client ID.
-4. Connect the output `quickElevateVnetId` and `privateEndpointSubnetId` to corporate GSA/VPN routing. Forward `privatelink.azurewebsites.net` through the corporate DNS path.
-5. Confirm public access stays disabled and test from a non-VPN network.
-6. Deploy the Function code through an approved deployment path that can reach the private Function SCM endpoint.
-
-Use `grant-managed-identity-graph-permission.ps1` to grant the required Graph application permission. Pass the `managedIdentityPrincipalId` deployment output:
+Run this once from PowerShell using an Entra tenant administrator account. It configures the Entra API/native client registrations, API scope, tenant-wide delegated consent, Easy Auth, Function client settings, and Graph read permission for the Managed Identity:
 
 ```powershell
-./grant-managed-identity-graph-permission.ps1 -mi <managedIdentityPrincipalId>
+./setup-quickelevate.ps1 `
+  -rg rg-wd-quickelevate-p01 `
+  -app <functionAppName>
 ```
 
-The script requires the Microsoft Graph PowerShell SDK. The signed-in operator needs `Application.Read.All` and `AppRoleAssignment.ReadWrite.All` delegated scopes and a directory role allowed to grant application permissions, such as Cloud Application Administrator or Privileged Role Administrator.
+Use `-PublishFunctionCode` when the machine running the script has .NET 8, Azure CLI, and an approved network path to the Function deployment endpoint:
+
+```powershell
+./setup-quickelevate.ps1 -rg rg-wd-quickelevate-p01 -app <functionAppName> -PublishFunctionCode
+```
+
+The script requires Azure CLI, .NET 8 only for code publish, and the Microsoft Graph PowerShell SDK. The signed-in operator needs delegated Graph scopes `Application.ReadWrite.All`, `AppRoleAssignment.ReadWrite.All`, and `DelegatedPermissionGrant.ReadWrite.All`, together with a directory role allowed to create applications and grant consent, such as Cloud Application Administrator or Privileged Role Administrator.
 
 The template creates Azure RBAC role assignments for the user-assigned identity. The deployment principal needs `Microsoft.Authorization/roleAssignments/write` on this resource group. `Owner`, `User Access Administrator`, or `Role Based Access Control Administrator` at resource-group scope is sufficient; subscription-level Contributor alone is not.
+
+After bootstrap, only VPN/GSA routing/private DNS and Function code publishing remain. The script produces the API URL, API scope, and native client ID needed for the Intune managed configuration profile. The macOS client uses the native client only for Platform SSO silent token acquisition; it does not open an Entra login screen.
 
 `Key Vault` is initially public but uses Managed Identity/RBAC. Add a Key Vault Private Endpoint as a later hardened deployment option if policy requires every dependency to be private.

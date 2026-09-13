@@ -13,7 +13,7 @@ The Function is reachable only through its Private Endpoint. Public network acce
 
 ## Authorization
 
-1. The app obtains an Entra access token for the QuickElevate API through MSAL.
+1. The app obtains an Entra access token for the QuickElevate API through MSAL silent acquisition from the existing Platform SSO/Company Portal session. Interactive login is prohibited.
 2. The app sends the token and a helper-generated nonce to `POST /api/v1/elevation-authorizations`.
 3. Easy Auth validates authentication. The API authorizes by the token's immutable `tid` and `oid` claims.
 4. The Function uses its Managed Identity and Microsoft Graph to test configured security group membership.

@@ -24,16 +24,16 @@
                         <dict>
                             <key>mcx_preference_settings</key>
                             <dict>
-                                <key>ApiAudience</key>
-                                <string>api://&lt;backend-api-application-id&gt;</string>
+                <key>ApiAudience</key>
+                <string>api://&lt;api-application-id&gt;</string>
                                 <key>ApiBaseUrl</key>
                                 <string>https://&lt;function-app-name&gt;.azurewebsites.net</string>
                                 <key>Environment</key>
                                 <string>production</string>
                                 <key>MaximumElevationSeconds</key>
                                 <integer>300</integer>
-                                <key>NativeClientId</key>
-                                <string>&lt;native-macos-app-client-id&gt;</string>
+                <key>NativeClientId</key>
+                <string>&lt;native-macos-app-client-id&gt;</string>
                                 <key>RequestTimeoutSeconds</key>
                                 <integer>15</integer>
                                 <key>TenantId</key>

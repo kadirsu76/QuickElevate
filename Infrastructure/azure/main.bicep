@@ -333,4 +333,4 @@ output privateEndpointSubnetId string = resourceId('Microsoft.Network/virtualNet
 output managedIdentityPrincipalId string = identity.properties.principalId
 output managedIdentityClientId string = identity.properties.clientId
 output keyVaultSigningKeyId string = signingKey.properties.keyUriWithVersion
-output requiredGraphPermission string = 'GroupMember.ReadBasic.All (application permission, tenant admin consent required)'
+output requiredGraphPermission string = 'GroupMember.Read.All (application permission, tenant admin consent required)'

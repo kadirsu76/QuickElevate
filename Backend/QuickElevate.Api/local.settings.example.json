@@ -10,6 +10,7 @@
     "MAXIMUM_ELEVATION_SECONDS": "300",
     "GRANT_ISSUER": "https://quickelevate-api.example.internal",
     "GRANT_AUDIENCE": "com.quickelevate.helper",
-    "KEY_VAULT_SIGNING_KEY_ID": "https://<vault>.vault.azure.net/keys/elevation-grant/<version>"
+    "KEY_VAULT_SIGNING_KEY_ID": "https://<vault>.vault.azure.net/keys/elevation-grant/<version>",
+    "QUICK_ELEVATE_NATIVE_CLIENT_ID": "<native-macos-app-registration-client-id>"
   }
 }
