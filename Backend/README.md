@@ -9,11 +9,11 @@ This .NET 8 isolated Azure Function authorizes new elevation requests.
 The endpoint:
 
 1. Derives the caller from Entra `tid` and `oid` claims injected by Easy Auth.
-2. Uses the Function Managed Identity to query the configured `PIM_GROUP_OBJECT_ID`.
+2. Uses the Function Managed Identity to query the configured `GROUP_OBJECT_ID`.
 3. Selects `members` for `Direct` mode or `transitiveMembers` for `Transitive` mode.
 4. Signs a grant with an Azure Key Vault asymmetric key.
 
-The API never accepts a user identity, PIM group ID, or authoritative duration from the macOS client.
+The API never accepts a user identity, security group ID, or authoritative duration from the macOS client.
 
 ## Required app settings
 

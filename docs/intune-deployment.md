@@ -26,7 +26,7 @@ The configuration profile should contain these deployment outputs:
 | `RequestTimeoutSeconds` | `15` for the initial pilot |
 | `MaximumElevationSeconds` | Backend policy ceiling, for example `300` |
 
-Do not add `pimGroupObjectId` to the macOS profile. It belongs only on the backend.
+Do not add `groupObjectId` to the macOS profile. It belongs only on the backend.
 
 Use `QuickElevate-Configuration.mobileconfig.example` only as a template. Replace every `<...>` value, generate new profile UUIDs, then upload it as a custom macOS profile.
 

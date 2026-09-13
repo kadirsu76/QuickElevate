@@ -4,7 +4,7 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "TENANT_ID": "<tenant-id>",
-    "PIM_GROUP_OBJECT_ID": "<pim-group-object-id>",
+    "GROUP_OBJECT_ID": "<security-group-object-id>",
     "MEMBERSHIP_MODE": "Transitive",
     "DEFAULT_ELEVATION_SECONDS": "60",
     "MAXIMUM_ELEVATION_SECONDS": "300",

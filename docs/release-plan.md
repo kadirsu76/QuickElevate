@@ -5,7 +5,7 @@
 - macOS Dock agent prototype with confirmation dialog, Touch ID/password authentication, notification, and countdown UI.
 - Root helper prototype with local expiration/revoke behavior.
 - .NET 8 Function authorization API skeleton.
-- Bicep infrastructure definition with mandatory `pimGroupObjectId` parameter and inbound Function Private Endpoint.
+- Bicep infrastructure definition with mandatory `groupObjectId` parameter and inbound Function Private Endpoint.
 - Intune profile templates and deployment documentation.
 
 ## Required before pilot

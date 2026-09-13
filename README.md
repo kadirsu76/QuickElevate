@@ -10,7 +10,7 @@ The target production design requires an authorization decision from a private A
 QuickElevate macOS app
   -> Corporate VPN or Global Secure Access
   -> Azure Function Private Endpoint
-  -> Microsoft Entra authentication and PIM group membership check
+  -> Microsoft Entra authentication and security group membership check
   -> Short-lived signed elevation grant
   -> Local root helper
   -> Temporary local administrator membership
@@ -25,7 +25,7 @@ QuickElevate macOS app
 - Use a private Azure backend reachable only through a corporate VPN, Global Secure Access, or any other network path that can route private traffic and resolve private DNS.
 - Keep the backend off the public internet with an Azure Private Endpoint and disabled public network access.
 - Authenticate the requesting user with Microsoft Entra ID.
-- Check the user against one configured PIM-managed security group.
+- Check the user against one configured Entra security group.
 - Support either direct or transitive group membership. `Transitive` is the default deployment option.
 - Return an asymmetric, short-lived, single-use signed grant rather than an untrusted `allowed: true` response.
 - Let only the local root helper validate and redeem the grant.
@@ -41,14 +41,14 @@ Select **Deploy to Azure** above. The template creates the Azure infrastructure 
 - `privatelink.azurewebsites.net` private DNS zone and endpoint DNS zone group
 - Key Vault and an RSA signing key
 - Application Insights
-- Function settings, including the required PIM group object ID
+- Function settings, including the required security group object ID
 
 The form requires only these two values:
 
 | Parameter | Description |
 | --- | --- |
 | `tenantId` | Microsoft Entra tenant ID. |
-| `pimGroupObjectId` | Immutable object ID of the PIM-managed Entra security group. |
+| `groupObjectId` | Immutable object ID of the Entra security group. |
 
 The template automatically creates its own VNet, private endpoint subnet, Function App, storage account, Key Vault, Application Insights instance, private endpoint, and private DNS zone. The Function App is created with `publicNetworkAccess=Disabled`.
 

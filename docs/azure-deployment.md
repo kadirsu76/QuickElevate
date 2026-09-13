@@ -11,9 +11,9 @@ The quick deployment creates a dedicated VNet (`10.250.0.0/16`) and Private Endp
 | Parameter | Purpose |
 | --- | --- |
 | `tenantId` | Microsoft Entra tenant ID. |
-| `pimGroupObjectId` | Immutable Entra Object ID of the PIM security group. |
+| `groupObjectId` | Immutable Entra Object ID of the security group. |
 
-`pimGroupObjectId` is mandatory. It stays in Function App configuration and is never received from the macOS client.
+`groupObjectId` is mandatory. It stays in Function App configuration and is never received from the macOS client.
 
 `membershipMode` can be `Direct` or `Transitive`. `Transitive` accepts nested group membership. This is less strict than direct PIM membership and should be selected deliberately.
 
@@ -39,7 +39,7 @@ The Function App is configured with `publicNetworkAccess=Disabled`. The deployme
 7. Configure VPN/GSA route and private DNS forwarding. See [VPN and Global Secure Access](vpn-gsa-setup.md).
 8. Configure Conditional Access if the deployment requires compliant devices, MFA, or other Entra conditions.
 
-No Graph write permission is required. Do not make the Managed Identity an owner or member of the PIM group.
+No Graph write permission is required. Do not make the Managed Identity an owner or member of the target group.
 
 The repository includes an idempotent Graph PowerShell helper for steps 4-5:
 

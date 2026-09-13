@@ -9,7 +9,7 @@ az deployment group create \
   --parameters @azuredeploy.parameters.json
 ```
 
-The quick deployment form requests only `tenantId` and `pimGroupObjectId`. It creates a dedicated `10.250.0.0/16` VNet and `10.250.1.0/24` Private Endpoint subnet. The required `pimGroupObjectId` is the immutable Entra Object ID for the PIM-managed security group. The backend keeps it in Function App settings. It is never accepted from the macOS app.
+The quick deployment form requests only `tenantId` and `groupObjectId`. It creates a dedicated `10.250.0.0/16` VNet and `10.250.1.0/24` Private Endpoint subnet. The required `groupObjectId` is the immutable Entra Object ID for the security group. The backend keeps it in Function App settings. It is never accepted from the macOS app.
 
 The public repository has an ARM JSON copy in `azuredeploy.json`; the README **Deploy to Azure** button opens that file in the Azure portal. Keep `azuredeploy.json` synchronized with `main.bicep` after changes.
 

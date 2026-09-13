@@ -16,7 +16,7 @@ The Function is reachable only through its Private Endpoint. Public network acce
 1. The app obtains an Entra access token for the QuickElevate API through MSAL.
 2. The app sends the token and a helper-generated nonce to `POST /api/v1/elevation-authorizations`.
 3. Easy Auth validates authentication. The API authorizes by the token's immutable `tid` and `oid` claims.
-4. The Function uses its Managed Identity and Microsoft Graph to test configured PIM group membership.
+4. The Function uses its Managed Identity and Microsoft Graph to test configured security group membership.
 5. On allow, the API returns an asymmetric, short-lived, single-use signed grant.
 6. The helper verifies the grant before it adds the active console user to local `admin`.
 7. The helper controls the expiration and removes only membership it added.

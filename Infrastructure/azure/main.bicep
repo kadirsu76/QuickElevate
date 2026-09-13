@@ -3,8 +3,8 @@ targetScope = 'resourceGroup'
 @description('Microsoft Entra tenant ID allowed to call the authorization API.')
 param tenantId string
 
-@description('Immutable object ID of the PIM-managed Entra security group checked by the backend.')
-param pimGroupObjectId string
+@description('Immutable object ID of the Entra security group checked by the backend.')
+param groupObjectId string
 
 var location = resourceGroup().location
 var suffix = toLower(uniqueString(resourceGroup().id))
@@ -148,7 +148,7 @@ resource functionSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     FUNCTIONS_EXTENSION_VERSION: '~4'
     FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
     TENANT_ID: tenantId
-    PIM_GROUP_OBJECT_ID: pimGroupObjectId
+    GROUP_OBJECT_ID: groupObjectId
     MEMBERSHIP_MODE: 'Transitive'
     DEFAULT_ELEVATION_SECONDS: '60'
     MAXIMUM_ELEVATION_SECONDS: '300'

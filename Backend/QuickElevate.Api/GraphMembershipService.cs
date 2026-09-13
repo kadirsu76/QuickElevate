@@ -11,7 +11,7 @@ public sealed class GraphMembershipService(HttpClient httpClient, DefaultAzureCr
         var path = string.Equals(configuration.MembershipMode, "Direct", StringComparison.OrdinalIgnoreCase)
             ? "members"
             : "transitiveMembers/microsoft.graph.user";
-        var nextUrl = $"https://graph.microsoft.com/v1.0/groups/{configuration.PimGroupObjectId}/{path}?$select=id";
+        var nextUrl = $"https://graph.microsoft.com/v1.0/groups/{configuration.GroupObjectId}/{path}?$select=id";
 
         while (!string.IsNullOrWhiteSpace(nextUrl))
         {

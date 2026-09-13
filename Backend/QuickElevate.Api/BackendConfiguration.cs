@@ -3,7 +3,7 @@ namespace QuickElevate.Api;
 public sealed class BackendConfiguration
 {
     public string TenantId => Required("TENANT_ID");
-    public string PimGroupObjectId => Required("PIM_GROUP_OBJECT_ID");
+    public string GroupObjectId => Required("GROUP_OBJECT_ID");
     public string MembershipMode => Environment.GetEnvironmentVariable("MEMBERSHIP_MODE") ?? "Transitive";
     public int DefaultElevationSeconds => BoundedInt("DEFAULT_ELEVATION_SECONDS", 60, 5, 300);
     public int MaximumElevationSeconds => BoundedInt("MAXIMUM_ELEVATION_SECONDS", 300, 5, 3600);
