@@ -31,6 +31,15 @@ Do not add `securityGroupObjectId` to the macOS profile. It belongs only on the 
 
 Use `QuickElevate-Configuration.mobileconfig.example` only as a template. Replace every `<...>` value, generate new profile UUIDs, then upload it as a custom macOS profile.
 
+After running `setup-quickelevate.ps1`, use these generated local artifacts:
+
+| Artifact | Use |
+| --- | --- |
+| `Infrastructure/azure/QuickElevate-Configuration.generated.json` | Copy `TenantId`, `NativeClientId`, `ApiAudience`, `ApiBaseUrl`, and the public signing-key values into the managed profile. |
+| `Infrastructure/azure/QuickElevate-Intune-postinstall.generated.sh` | Paste into the Intune macOS PKG post-install script field. It writes root-owned `grant-verifier.json` for the helper. |
+
+The generated post-install script contains the Key Vault **public** RSA modulus and exponent only. It does not contain a Key Vault credential, Graph token, app secret, or signing private key.
+
 Do not put Function keys, client secrets, Graph tokens, Key Vault credentials, or signing material in Intune scripts or profiles. The settings profile contains identifiers and URLs only.
 
 The Intune post-install script is not the long-term settings channel. Use managed preferences so policy changes do not require a package reinstall.

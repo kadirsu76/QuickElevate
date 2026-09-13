@@ -26,7 +26,14 @@ $archive = "$publishDirectory.zip"
 
 try {
     & dotnet publish $project --configuration Release --output $publishDirectory
-    Compress-Archive -Path "$publishDirectory/*" -DestinationPath $archive -Force
+    Push-Location $publishDirectory
+    try {
+        # Compress-Archive omits dot-directories; Flex validates .azurefunctions at ZIP root.
+        & /usr/bin/zip -r $archive . | Out-Null
+    }
+    finally {
+        Pop-Location
+    }
     & $az functionapp deployment source config-zip --resource-group $ResourceGroupName --name $FunctionAppName --src $archive
 }
 finally {

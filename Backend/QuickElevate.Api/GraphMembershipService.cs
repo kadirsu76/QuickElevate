@@ -1,5 +1,6 @@
 using Azure.Core;
 using Azure.Identity;
+using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
 namespace QuickElevate.Api;

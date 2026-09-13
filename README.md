@@ -98,6 +98,8 @@ The current package is an alpha artifact. Production packaging must create unive
 
 The profile templates and detailed instructions are in [deploy](deploy/) and [Intune deployment](docs/intune-deployment.md).
 
+Run `setup-quickelevate.ps1` after infrastructure deployment. It produces a generated Intune profile-value JSON file and a PKG post-install script that installs the helper's root-owned public signing-key configuration.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)

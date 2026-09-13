@@ -8,4 +8,5 @@ Backend/**/obj/
 Infrastructure/azure/*.parameters.json
 Infrastructure/azure/.env
 Infrastructure/azure/QuickElevate-Configuration.generated.json
+Infrastructure/azure/QuickElevate-Intune-postinstall.generated.sh
 Backend/**/local.settings.json

@@ -178,8 +178,11 @@ private final class ElevationService {
             if let d = deadlineEpoch, d > Date().timeIntervalSince1970 {
                 scheduleTimer(until: d, for: user)
             } else {
-                _ = revokeIfPossible(user: user)
-                clearState()
+                if revokeIfPossible(user: user) {
+                    clearState()
+                } else {
+                    logger.error("startup revoke failed for \(user, privacy: .public)")
+                }
             }
         }
     }
