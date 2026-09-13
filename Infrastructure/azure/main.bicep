@@ -122,7 +122,7 @@ resource signingKey 'Microsoft.KeyVault/vaults/keys@2023-07-01' = {
 }
 
 resource storageBlobOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, identity.properties.principalId, storageBlobDataOwnerRoleId)
+  name: guid(storage.id, identity.id, storageBlobDataOwnerRoleId)
   scope: storage
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwnerRoleId)
@@ -132,7 +132,7 @@ resource storageBlobOwnerAssignment 'Microsoft.Authorization/roleAssignments@202
 }
 
 resource storageBlobContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, identity.properties.principalId, storageBlobDataContributorRoleId)
+  name: guid(storage.id, identity.id, storageBlobDataContributorRoleId)
   scope: storage
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
@@ -142,7 +142,7 @@ resource storageBlobContributorAssignment 'Microsoft.Authorization/roleAssignmen
 }
 
 resource storageQueueContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, identity.properties.principalId, storageQueueDataContributorRoleId)
+  name: guid(storage.id, identity.id, storageQueueDataContributorRoleId)
   scope: storage
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageQueueDataContributorRoleId)
@@ -152,7 +152,7 @@ resource storageQueueContributorAssignment 'Microsoft.Authorization/roleAssignme
 }
 
 resource storageTableContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, identity.properties.principalId, storageTableDataContributorRoleId)
+  name: guid(storage.id, identity.id, storageTableDataContributorRoleId)
   scope: storage
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageTableDataContributorRoleId)
@@ -162,7 +162,7 @@ resource storageTableContributorAssignment 'Microsoft.Authorization/roleAssignme
 }
 
 resource metricsPublisherAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(appInsights.id, identity.properties.principalId, monitoringMetricsPublisherRoleId)
+  name: guid(appInsights.id, identity.id, monitoringMetricsPublisherRoleId)
   scope: appInsights
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', monitoringMetricsPublisherRoleId)
@@ -172,7 +172,7 @@ resource metricsPublisherAssignment 'Microsoft.Authorization/roleAssignments@202
 }
 
 resource keyVaultCryptoUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, identity.properties.principalId, keyVaultCryptoUserRoleId)
+  name: guid(keyVault.id, identity.id, keyVaultCryptoUserRoleId)
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultCryptoUserRoleId)
@@ -236,7 +236,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       deployment: {
         storage: {
           type: 'blobContainer'
-          value: '${storage.properties.primaryEndpoints.blob}${deploymentContainerName}'
+          value: uri(storage.properties.primaryEndpoints.blob, deploymentContainerName)
           authentication: {
             type: 'UserAssignedIdentity'
             userAssignedIdentityResourceId: identity.id
@@ -292,6 +292,9 @@ resource functionSettings 'Microsoft.Web/sites/config@2024-04-01' = {
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: 'pe-${functionAppName}'
   location: location
+  dependsOn: [
+    vnet
+  ]
   properties: {
     subnet: {
       id: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)
