@@ -3,6 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "environmentName": { "value": "prod" },
+    "existingVnetResourceId": { "value": "/subscriptions/<subscription-id>/resourceGroups/<network-rg>/providers/Microsoft.Network/virtualNetworks/<vnet>" },
     "privateEndpointSubnetId": { "value": "/subscriptions/<subscription-id>/resourceGroups/<network-rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<private-endpoint-subnet>" },
     "tenantId": { "value": "<tenant-id>" },
     "pimGroupObjectId": { "value": "<pim-security-group-object-id>" },

@@ -1,7 +1,51 @@
 # Azure Deployment
 
-The deploy template asks for `pimGroupObjectId`. This immutable Entra group object ID stays on the backend and is never supplied by the macOS client.
+## Scope
 
-The template creates private-network resources only. After deployment a tenant administrator must grant the Function Managed Identity Microsoft Graph application permission `GroupMember.ReadBasic.All` and grant admin consent. No Graph write permission is required.
+The **Deploy to Azure** button provisions Azure infrastructure. It does not deploy Function code, create Microsoft Entra app registrations, grant Microsoft Graph permissions, create Conditional Access policies, or configure a VPN/GSA product. Those steps need tenant-level approval and are intentionally separate.
 
-For `membershipMode=Transitive`, the backend accepts direct or nested membership. For stricter PIM semantics select `Direct`.
+The deployment requires an existing VNet and an existing subnet for the Function App private endpoint. The private endpoint subnet must have available addresses and must not be reused as an App Service/Function outbound VNet integration subnet.
+
+## Required Parameters
+
+| Parameter | Purpose |
+| --- | --- |
+| `environmentName` | Namespaces Azure resources, for example `dev`, `test`, or `prod`. |
+| `existingVnetResourceId` | Existing VNet resource ID linked to the private DNS zone. |
+| `privateEndpointSubnetId` | Existing subnet used by the Function private endpoint. |
+| `tenantId` | Microsoft Entra tenant ID. |
+| `pimGroupObjectId` | Immutable Entra Object ID of the PIM security group. |
+| `nativeClientId` | Client ID of the macOS public/native Entra application. |
+| `apiApplicationId` | Client ID of the backend API Entra application. |
+
+`pimGroupObjectId` is mandatory. It stays in Function App configuration and is never received from the macOS client.
+
+`membershipMode` can be `Direct` or `Transitive`. `Transitive` accepts nested group membership. This is less strict than direct PIM membership and should be selected deliberately.
+
+## Resources Created
+
+- Flex Consumption Function hosting plan and Function App
+- System-assigned Managed Identity
+- Function inbound Private Endpoint
+- `privatelink.azurewebsites.net` private DNS zone, VNet link, and DNS zone group
+- Standard Key Vault and a non-exportable RSA signing key
+- Application Insights
+
+The Function App is configured with `publicNetworkAccess=Disabled`. The deployment does not create a public fallback API path.
+
+## Post-deployment Tenant Tasks
+
+1. Deploy the Function code to the provisioned Function App from a private-capable CI runner or a network path that reaches the SCM endpoint.
+2. Configure App Service Authentication/Easy Auth for the backend API app registration.
+3. Require authentication, return HTTP `401` for unauthenticated API calls, restrict the API to the configured tenant, and allow only the native macOS client ID.
+4. Grant the Function Managed Identity Microsoft Graph application permission `GroupMember.ReadBasic.All`.
+5. Grant tenant admin consent for that application permission.
+6. Give the Function Managed Identity Key Vault RBAC permission to sign with the generated key.
+7. Configure VPN/GSA route and private DNS forwarding. See [VPN and Global Secure Access](vpn-gsa-setup.md).
+8. Configure Conditional Access if the deployment requires compliant devices, MFA, or other Entra conditions.
+
+No Graph write permission is required. Do not make the Managed Identity an owner or member of the PIM group.
+
+## Validation
+
+From a machine on the VNet/VPN/GSA path, the normal Function hostname must resolve through the private-link record. An unauthenticated API request should receive HTTP `401`. From outside the private network, the API must not be reachable.

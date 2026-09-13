@@ -11,6 +11,9 @@ param environmentName string
 @description('Existing subnet resource ID used for the Function App inbound private endpoint.')
 param privateEndpointSubnetId string
 
+@description('Existing Azure VNet resource ID that contains the private endpoint subnet. It is linked to the private DNS zone.')
+param existingVnetResourceId string
+
 @description('Microsoft Entra tenant ID that can call the API.')
 param tenantId string
 
@@ -108,6 +111,18 @@ resource signingKey 'Microsoft.KeyVault/vaults/keys@2023-07-01' = {
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   name: privateDnsZoneName
   location: 'global'
+}
+
+resource privateDnsZoneVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: privateDnsZone
+  name: 'quickelevate-vnet-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: existingVnetResourceId
+    }
+  }
 }
 
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {

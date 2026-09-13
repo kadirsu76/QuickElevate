@@ -1,92 +1,114 @@
 # QuickElevate
 
-> **Alpha / not for production:** the current macOS helper still contains the original local-only grant path while the private Azure authorization gate is being implemented. Do not deploy the current package broadly. Production requires a backend-signed, single-use grant before the helper will elevate any user.
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fkadirsu76%2FQuickElevate%2Fmain%2FInfrastructure%2Fazure%2Fazuredeploy.json)
 
-QuickElevate, macOS'ta kullaniciya Touch ID/parola onayi ile kisa sureli gecici admin yetkisi vermek icin tasarlanmis istemci + root helper cozumudur. Hedef mimaride yeni yetki talepleri private Azure backend tarafindan PIM grup uyeligiyle onaylanir.
+QuickElevate is a macOS just-in-time local administrator elevation project. A user requests a short elevation from a Dock-based app, authenticates with Touch ID or their local password, and receives local administrator membership for the policy-approved period.
 
-## Ozellikler
+The target production design requires an authorization decision from a private Azure Function before the root helper can elevate a user:
 
-- Dock uygulamasinda "60 sn Yetki Iste" aksiyonu.
-- LocalAuthentication ile Touch ID/parola zorunlulugu.
-- Root helper ile local `admin` grubuna gecici ekleme.
-- Dock badge'de saniye bazli geri sayim (`60..0`).
-- Sure sonunda otomatik revoke.
-- Uygulama kapansa bile revoke zamanlayicisi helper tarafinda devam eder.
+```text
+QuickElevate macOS app
+  -> Corporate VPN or Global Secure Access
+  -> Azure Function Private Endpoint
+  -> Microsoft Entra authentication and PIM group membership check
+  -> Short-lived signed elevation grant
+  -> Local root helper
+  -> Temporary local administrator membership
+```
 
-## Mimari
+## Status
 
-- `QuickElevateApp`: pencere acmadan Dock davranisi sunan AppKit istemcisi.
-- `QuickElevateHelper`: root LaunchDaemon.
-- `QuickElevateShared`: protokol ve socket transport.
-- IPC: `/var/run/quickelevate/quickelevate.sock`.
-- Hedef backend: `.NET 8 Azure Function`, Private Endpoint, Easy Auth, Managed Identity, Microsoft Graph ve Key Vault imzali grant.
+> **Alpha. Not production-ready.** The current macOS helper still includes the original local-only grant flow. Do not deploy the current package to users until the backend-signed grant, nonce, replay protection, local identity binding, Developer ID signing, notarization, and automated test work are completed.
 
-Mimari ayrintilari icin `docs/architecture.md`, riskler icin `docs/threat-model.md` dosyalarina bakin.
+## Design Goals
 
-## Private Azure Backend
+- Use a private Azure backend reachable only through a corporate VPN, Global Secure Access, or any other network path that can route private traffic and resolve private DNS.
+- Keep the backend off the public internet with an Azure Private Endpoint and disabled public network access.
+- Authenticate the requesting user with Microsoft Entra ID.
+- Check the user against one configured PIM-managed security group.
+- Support either direct or transitive group membership. `Transitive` is the default deployment option.
+- Return an asymmetric, short-lived, single-use signed grant rather than an untrusted `allowed: true` response.
+- Let only the local root helper validate and redeem the grant.
+- Preserve the Dock lock state, countdown badge, confirmation dialog, Touch ID/password step, and user notifications.
 
-Hedef backend `.NET 8 Azure Function` olarak `Backend/QuickElevate.Api` altindadir. Bicep altyapisi `Infrastructure/azure/main.bicep` dosyasinda bulunur.
+## Deploy to Azure
 
-`pimGroupObjectId` Azure deployment'in zorunlu parametresidir. Bu deger backend tarafinda tutulur; macOS istemcisi secemez veya degistiremez.
+Select **Deploy to Azure** above. The template creates the Azure infrastructure required for the pilot architecture:
 
-GitHub remote olusturulduktan sonra bu README'ye derlenmis ARM template'i kullanan `Deploy to Azure` butonu eklenecektir. Bicep/ARM deploy, Entra app registration, Graph admin consent ve Conditional Access islemlerini tamamen otomatiklestirmez; bunlar tenant admin tarafindan tamamlanmalidir.
+- Azure Function Flex Consumption plan and Function App
+- System-assigned Managed Identity
+- Inbound Private Endpoint for the Function App
+- `privatelink.azurewebsites.net` private DNS zone and endpoint DNS zone group
+- Key Vault and an RSA signing key
+- Application Insights
+- Function settings, including the required PIM group object ID
 
-## Guvenlik Sertlestirmeleri
+The form requires these values:
 
-- Helper, soket istemcisinin `uid/gid/pid` bilgisini kernel'den alir.
-- Yalniz aktif console user taleplerine izin verilir.
-- Root caller reddedilir.
-- Istemci proses yolu `/Applications/QuickElevate.app/Contents/MacOS/QuickElevateApp` ile eslesmelidir.
-- Istemci kod imzasi, kurulu guvenilir ikilinin designated requirement'i ile dogrulanir.
-- `request.user` alani peer uid ile birebir eslesmelidir.
+| Parameter | Description |
+| --- | --- |
+| `environmentName` | Short environment name, for example `dev`, `test`, or `prod`. |
+| `existingVnetResourceId` | Existing Azure VNet resource ID connected to the private DNS zone. |
+| `privateEndpointSubnetId` | Existing Azure VNet subnet resource ID for the Function private endpoint. |
+| `tenantId` | Microsoft Entra tenant ID. |
+| `pimGroupObjectId` | Immutable object ID of the PIM-managed Entra security group. |
+| `nativeClientId` | App registration client ID for the macOS native application. |
+| `apiApplicationId` | App registration client ID representing the backend API. |
 
-## Build
+The Function App is created with `publicNetworkAccess=Disabled`. This means the deployment is intentionally not usable until VPN/GSA routing and private DNS are configured.
+
+The template does not create or grant Microsoft Entra tenant permissions. Complete the post-deployment steps in [Azure deployment](docs/azure-deployment.md).
+
+## macOS Components
+
+| Component | Responsibility |
+| --- | --- |
+| `QuickElevateApp` | Dock behavior, confirmation dialog, Touch ID/password authentication, backend request, notifications, and countdown state. |
+| `QuickElevateHelper` | Root LaunchDaemon that is the only process allowed to change local `admin` membership and enforce expiry. |
+| `QuickElevateShared` | Local IPC message contracts and transport code. |
+
+## Development Build
 
 ```bash
 swift build
 swift build -c release
 ```
 
-## Gelistirme Kurulumu
+The backend is a .NET 8 isolated Azure Function in `Backend/QuickElevate.Api`. Install the .NET 8 SDK and Azure Functions Core Tools before building or running it locally.
 
 ```bash
-chmod +x deploy/install-helper.sh deploy/pin-to-dock.sh
-./deploy/install-helper.sh
+dotnet build Backend/QuickElevate.Api/QuickElevate.Api.csproj
 ```
 
-## PKG Uretimi
+## macOS Packaging
 
 ```bash
-chmod +x deploy/build-pkg.sh deploy/notarize-pkg.sh deploy/pkg-scripts/preinstall deploy/pkg-scripts/postinstall
+chmod +x deploy/build-pkg.sh deploy/notarize-pkg.sh
 swift build -c release
 ./deploy/build-pkg.sh 0.1.0
 ```
 
-Imzali paket icin:
+The current package is an alpha artifact. Production packaging must create universal binaries, sign the app and helper with a Developer ID Application certificate, sign the installer with a Developer ID Installer certificate, notarize the final package, and staple the notarization ticket.
 
-```bash
-export DEVELOPER_ID_INSTALLER="Developer ID Installer: COMPANY NAME (TEAMID)"
-./deploy/build-pkg.sh 0.1.0
-```
+## Intune Deployment
 
-Notarization icin:
+1. Deploy VPN/GSA routing and private DNS first.
+2. Deploy the QuickElevate managed configuration profile.
+3. Deploy Dock and notification profiles.
+4. Deploy the signed/notarized PKG as a required macOS PKG app.
 
-```bash
-export NOTARY_PROFILE="quickelevate-notary"
-./deploy/notarize-pkg.sh dist/QuickElevate-0.1.0.pkg
-```
+The profile templates and detailed instructions are in [deploy](deploy/) and [Intune deployment](docs/intune-deployment.md).
 
-## Intune Dagitimi
+## Documentation
 
-- `dist/QuickElevate-<version>.pkg` dosyasini Intune macOS PKG app olarak yukleyin.
-- Dock pin icin `deploy/QuickElevate-Dock.mobileconfig` profilini custom profile olarak dagitin.
-- Bildirim izni icin `deploy/QuickElevate-Notifications.mobileconfig` profilini dagitin.
-- `deploy/pin-to-dock.sh` scripti yalniz fallback amaclidir.
-- Health kontrolu icin `deploy/intune-remediation.sh`, temiz uninstall icin `deploy/intune-uninstall.sh` kullanin.
-- Ayrintili adimlar icin `deploy/intune-notes.md` dosyasina bakin.
-- Private backend ayarlari icin `deploy/QuickElevate-Configuration.mobileconfig.example` dosyasini kullanin.
-- VPN/GSA ve Azure kurulum adimlari icin `docs/intune-deployment.md` ve `Infrastructure/azure/README.md` dosyalarina bakin.
+- [Architecture](docs/architecture.md)
+- [Threat model](docs/threat-model.md)
+- [Azure deployment](docs/azure-deployment.md)
+- [VPN and Global Secure Access](docs/vpn-gsa-setup.md)
+- [Intune deployment](docs/intune-deployment.md)
+- [Alpha release plan](docs/release-plan.md)
+- [Security reporting](SECURITY.md)
 
-## Risk Notu
+## Security Model
 
-60 saniye kisa bir sure olsa da bu pencerede kullanici gercek local admin olur. Bu surede kalici sistem degisiklikleri yapilabilir. Bu nedenle endpoint hardening, audit ve izleme politikalari ile birlikte kullanilmalidir.
+Temporary membership in the macOS `admin` group is broad local administrator access, not per-process elevation. Removing the membership at expiry does not undo durable changes made while elevated. Keep elevation windows short, require the Azure/PIM authorization gate, harden and monitor endpoints, and retain an independent recovery path.
