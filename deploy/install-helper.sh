@@ -47,22 +47,29 @@ fi
 APPLE_TEAM_ID="${2:-${APPLE_TEAM_ID:-}}"
 if [[ -n "$APPLE_TEAM_ID" ]]; then
   echo "Apple Development signing aktif (Team ID: $APPLE_TEAM_ID)"
+  SIGN_IDENTITY="$(security find-identity -v -p codesigning | grep "($APPLE_TEAM_ID)" | head -1 | sed -E 's/^[[:space:]]*[0-9]+\) ([A-F0-9]+) "(.*)".*/\2/')"
+  if [[ -z "$SIGN_IDENTITY" ]]; then
+    echo "HATA: Team ID $APPLE_TEAM_ID icin codesigning kimligi bulunamadi."
+    echo "Xcode > Settings > Accounts altinda Apple ID ile giris yapildigini dogrulayin."
+    exit 1
+  fi
+  echo "Imza kimligi: $SIGN_IDENTITY"
   ENTITLEMENTS_TMP="$(mktemp -t quickelevate-entitlements).plist"
-  sed "s/@APPLE_TEAM_ID@/$APPLE_TEAM_ID/g" "$ROOT_DIR/deploy/QuickElevate.entitlements.template" > "$ENTITLEMENTS_TMP"
+  # Entitlement öneki, sertifika adındaki parantez içi değer DEĞİL, sertifikanın
+  # OU alanındaki gerçek Team ID olmalıdır (codesign TeamIdentifier buradan gelir).
+  CERT_TEAM_ID="$(security find-certificate -c "$SIGN_IDENTITY" -p 2>/dev/null | openssl x509 -noout -subject -nameopt sep_multiline 2>/dev/null | grep -m1 'OU=' | sed 's/^ *OU=//')"
+  if [[ -z "$CERT_TEAM_ID" ]]; then
+    echo "UYARI: sertifikadan Team ID okunamadi, verilen deger kullaniliyor."
+    CERT_TEAM_ID="$APPLE_TEAM_ID"
+  fi
+  echo "Entitlement Team ID: $CERT_TEAM_ID"
+  sed "s/@APPLE_TEAM_ID@/$CERT_TEAM_ID/g" "$ROOT_DIR/deploy/QuickElevate.entitlements.template" > "$ENTITLEMENTS_TMP"
   if ! plutil -lint "$ENTITLEMENTS_TMP" >/dev/null; then
     echo "HATA: uretilen entitlements dosyasi gecersiz:"
     plutil -lint "$ENTITLEMENTS_TMP" || true
     rm -f "$ENTITLEMENTS_TMP"
     exit 1
   fi
-  SIGN_IDENTITY="$(security find-identity -v -p codesigning | grep "($APPLE_TEAM_ID)" | head -1 | sed -E 's/^[[:space:]]*[0-9]+\) ([A-F0-9]+) "(.*)".*/\2/')"
-  if [[ -z "$SIGN_IDENTITY" ]]; then
-    echo "HATA: Team ID $APPLE_TEAM_ID icin codesigning kimligi bulunamadi."
-    echo "Xcode > Settings > Accounts altinda Apple ID ile giris yapildigini dogrulayin."
-    rm -f "$ENTITLEMENTS_TMP"
-    exit 1
-  fi
-  echo "Imza kimligi: $SIGN_IDENTITY"
   echo "Not: Keychain erisim sorusu cikarsa 'Always Allow' secin."
   codesign --force --sign "$SIGN_IDENTITY" "$STAGE_DIR/QuickElevate.app/Contents/Frameworks/MSAL.framework"
   codesign --force --entitlements "$ENTITLEMENTS_TMP" --sign "$SIGN_IDENTITY" "$STAGE_DIR/QuickElevate.app/Contents/MacOS/QuickElevateApp"
