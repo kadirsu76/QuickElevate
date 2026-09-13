@@ -22,4 +22,12 @@ The public repository has an ARM JSON copy in `azuredeploy.json`; the README **D
 5. Confirm public access stays disabled and test from a non-VPN network.
 6. Deploy the Function code through an approved deployment path that can reach the private Function SCM endpoint.
 
+Use `grant-managed-identity-graph-permission.ps1` to grant the required Graph application permission. Pass the `managedIdentityPrincipalId` deployment output:
+
+```powershell
+./grant-managed-identity-graph-permission.ps1 -mi <managedIdentityPrincipalId>
+```
+
+The script requires the Microsoft Graph PowerShell SDK. The signed-in operator needs `Application.Read.All` and `AppRoleAssignment.ReadWrite.All` delegated scopes and a directory role allowed to grant application permissions, such as Cloud Application Administrator or Privileged Role Administrator.
+
 `Key Vault` is initially public but uses Managed Identity/RBAC. Add a Key Vault Private Endpoint as a later hardened deployment option if policy requires every dependency to be private.

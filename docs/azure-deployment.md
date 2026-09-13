@@ -46,6 +46,12 @@ The Function App is configured with `publicNetworkAccess=Disabled`. The deployme
 
 No Graph write permission is required. Do not make the Managed Identity an owner or member of the PIM group.
 
+The repository includes an idempotent Graph PowerShell helper for steps 4-5:
+
+```powershell
+./Infrastructure/azure/grant-managed-identity-graph-permission.ps1 -mi <managedIdentityPrincipalId>
+```
+
 ## Validation
 
 From a machine on the VNet/VPN/GSA path, the normal Function hostname must resolve through the private-link record. An unauthenticated API request should receive HTTP `401`. From outside the private network, the API must not be reachable.
