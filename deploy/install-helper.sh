@@ -39,6 +39,7 @@ trap 'rm -rf "$STAGE_DIR"' EXIT
 mkdir -p "$STAGE_DIR/QuickElevate.app/Contents/MacOS" "$STAGE_DIR/QuickElevate.app/Contents/Resources" "$STAGE_DIR/QuickElevate.app/Contents/Frameworks"
 install -m 755 "$APP_SRC" "$STAGE_DIR/QuickElevate.app/Contents/MacOS/QuickElevateApp"
 install -m 644 "$ROOT_DIR/deploy/QuickElevate.Info.plist" "$STAGE_DIR/QuickElevate.app/Contents/Info.plist"
+install -m 644 "$ROOT_DIR/Sources/QuickElevateApp/Resources/AppIcon.icns" "$STAGE_DIR/QuickElevate.app/Contents/Resources/AppIcon.icns"
 rm -rf "$STAGE_DIR/QuickElevate.app/Contents/Frameworks/MSAL.framework"
 cp -R "$MSAL_FRAMEWORK_SRC" "$STAGE_DIR/QuickElevate.app/Contents/Frameworks/MSAL.framework"
 if ! otool -l "$STAGE_DIR/QuickElevate.app/Contents/MacOS/QuickElevateApp" | grep -A2 LC_RPATH | grep -q '@executable_path/../Frameworks'; then

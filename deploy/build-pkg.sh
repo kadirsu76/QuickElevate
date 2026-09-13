@@ -38,6 +38,7 @@ mkdir -p "$PRODUCT_BUILD_DIR"
 
 install -m 755 "$APP_BIN" "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/MacOS/QuickElevateApp"
 install -m 644 "$ROOT_DIR/deploy/QuickElevate.Info.plist" "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/Info.plist"
+install -m 644 "$ROOT_DIR/Sources/QuickElevateApp/Resources/AppIcon.icns" "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/Resources/AppIcon.icns"
 cp -R "$MSAL_FRAMEWORK_SRC" "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/Frameworks/MSAL.framework"
 install_name_tool -add_rpath '@executable_path/../Frameworks' "$PAYLOAD_ROOT/Applications/QuickElevate.app/Contents/MacOS/QuickElevateApp"
 codesign --force --deep --sign - "$PAYLOAD_ROOT/Applications/QuickElevate.app"

@@ -6,6 +6,8 @@
     <string>QuickElevate</string>
     <key>CFBundleExecutable</key>
     <string>QuickElevateApp</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.quickelevate.app</string>
     <key>CFBundleName</key>
