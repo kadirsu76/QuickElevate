@@ -10,3 +10,5 @@ Infrastructure/azure/.env
 Infrastructure/azure/QuickElevate-Configuration.generated.json
 Infrastructure/azure/QuickElevate-Intune-postinstall.generated.sh
 Backend/**/local.settings.json
+build-xcode/
+deploy/build-stub/
