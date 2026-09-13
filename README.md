@@ -56,6 +56,8 @@ After deployment, connect the output `quickElevateVnetId` to your GSA/VPN/privat
 
 The template does not create or grant Microsoft Entra tenant permissions. Complete the post-deployment steps in [Azure deployment](docs/azure-deployment.md).
 
+For short-lived development before VPN/GSA is ready, use the documented temporary IP allowlist mode. It opens public ingress only to a specified IP and keeps default-deny, Easy Auth, and the private endpoint in place. Remove it as soon as private connectivity is available.
+
 ## macOS Components
 
 | Component | Responsibility |

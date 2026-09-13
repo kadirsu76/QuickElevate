@@ -56,3 +56,25 @@ The repository also includes a narrower idempotent Graph-only helper:
 ## Validation
 
 From a machine on the VNet/VPN/GSA path, the normal Function hostname must resolve through the private-link record. An unauthenticated API request should receive HTTP `401`. From outside the private network, the API must not be reachable.
+
+## Temporary Operator Access Before VPN/GSA
+
+Until the private route and DNS path is ready, use the temporary operator script to allow only a known public egress IP. This is an App Service access restriction, not an NSG rule. An NSG cannot protect the App Service public frontend.
+
+```powershell
+./Infrastructure/azure/set-temporary-public-access.ps1 `
+  -rg rg-wd-quickelevate-p01 `
+  -app func-quickelevate-surygmpiizedm `
+  -AllowedIp 188.119.54.129/32
+```
+
+The script enables Function App public ingress but adds allow rules for the supplied IP on both the API and SCM deployment endpoint, with `Deny` as the default action. Easy Auth continues to require a valid Entra token.
+
+Disable the temporary public path immediately after VPN/GSA is functional:
+
+```powershell
+./Infrastructure/azure/set-temporary-public-access.ps1 `
+  -rg rg-wd-quickelevate-p01 `
+  -app func-quickelevate-surygmpiizedm `
+  -Disable
+```
