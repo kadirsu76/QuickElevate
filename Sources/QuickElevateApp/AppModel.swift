@@ -64,7 +64,7 @@ final class AppModel {
 
             let context = try SocketTransport.send(.init(action: .authorizationContext))
             guard let nonce = context.nonce else {
-                throw NSError(domain: "QuickElevate", code: 3, userInfo: [NSLocalizedDescriptionKey: "Authorization context was not created."])
+                throw NSError(domain: "QuickElevate", code: 3, userInfo: [NSLocalizedDescriptionKey: "Authorization context was not created: \(context.message)"])
             }
             statusText = "Authorization is being checked"
             let accessToken = try await silentTokenProvider.acquireToken(configuration: configuration)
