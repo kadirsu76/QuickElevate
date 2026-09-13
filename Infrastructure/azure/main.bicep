@@ -274,8 +274,6 @@ resource functionSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     AzureWebJobsStorage__credential: 'managedidentity'
     AzureWebJobsStorage__clientId: identity.properties.clientId
     AZURE_CLIENT_ID: identity.properties.clientId
-    FUNCTIONS_EXTENSION_VERSION: '~4'
-    FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
     TENANT_ID: tenantId
     GROUP_OBJECT_ID: securityGroupObjectId
     MEMBERSHIP_MODE: 'Transitive'
