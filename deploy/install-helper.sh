@@ -81,6 +81,10 @@ else
   echo "UYARI: APPLE_TEAM_ID verilmedi, ad-hoc imza kullaniliyor. MSAL/PSSO Keychain erisimi (-34018) calismaz."
   codesign --force --deep --sign - "$STAGE_DIR/QuickElevate.app"
 fi
+# Eski imzali process calisir durumda kalirsa helper cdhash mismatch (-67034)
+# ile yeni istegi reddeder. Kurulumdan once calisan ornekleri sonlandir.
+pkill -x QuickElevateApp 2>/dev/null || true
+sleep 1
 sudo rm -rf /Applications/QuickElevate.app
 sudo cp -R "$STAGE_DIR/QuickElevate.app" /Applications/QuickElevate.app
 sudo chown -R root:wheel /Applications/QuickElevate.app
