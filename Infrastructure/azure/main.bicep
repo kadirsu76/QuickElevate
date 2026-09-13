@@ -1,21 +1,27 @@
 targetScope = 'resourceGroup'
 
-@description('Microsoft Entra tenant ID allowed to call the authorization API.')
-param tenantId string
-
 @description('Immutable object ID of the Entra security group checked by the backend.')
 param securityGroupObjectId string
 
 var location = resourceGroup().location
+var tenantId = subscription().tenantId
 var suffix = toLower(uniqueString(resourceGroup().id))
-var environmentName = 'prod'
 var functionAppName = 'func-quickelevate-${suffix}'
 var storageName = 'stqe${suffix}'
 var keyVaultName = 'kvqe${suffix}'
+var identityName = 'id-quickelevate-${suffix}'
 var appInsightsName = 'appi-quickelevate-${suffix}'
-var vnetName = 'vnet-quickelevate-${environmentName}'
+var vnetName = 'vnet-quickelevate-prod'
 var privateEndpointSubnetName = 'snet-private-endpoints'
+var deploymentContainerName = 'function-package-${suffix}'
 var privateDnsZoneName = 'privatelink.azurewebsites.net'
+
+var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+var storageTableDataContributorRoleId = '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
+var monitoringMetricsPublisherRoleId = '3913510d-42f4-4e42-8a64-420c390055eb'
+var keyVaultCryptoUserRoleId = '12338af0-0e69-4776-bea7-57ae8d297424'
 
 resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   name: vnetName
@@ -38,6 +44,11 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   }
 }
 
+resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: identityName
+  location: location
+}
+
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageName
   location: location
@@ -46,8 +57,25 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     name: 'Standard_LRS'
   }
   properties: {
+    accessTier: 'Hot'
     allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
+    defaultToOAuthAuthentication: true
     minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+
+resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: deploymentContainerName
+  properties: {
+    publicAccess: 'None'
   }
 }
 
@@ -93,6 +121,66 @@ resource signingKey 'Microsoft.KeyVault/vaults/keys@2023-07-01' = {
   }
 }
 
+resource storageBlobOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.properties.principalId, storageBlobDataOwnerRoleId)
+  scope: storage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwnerRoleId)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource storageBlobContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.properties.principalId, storageBlobDataContributorRoleId)
+  scope: storage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource storageQueueContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.properties.principalId, storageQueueDataContributorRoleId)
+  scope: storage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageQueueDataContributorRoleId)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource storageTableContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.properties.principalId, storageTableDataContributorRoleId)
+  scope: storage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageTableDataContributorRoleId)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource metricsPublisherAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(appInsights.id, identity.properties.principalId, monitoringMetricsPublisherRoleId)
+  scope: appInsights
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', monitoringMetricsPublisherRoleId)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource keyVaultCryptoUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, identity.properties.principalId, keyVaultCryptoUserRoleId)
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultCryptoUserRoleId)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   name: privateDnsZoneName
   location: 'global'
@@ -111,7 +199,7 @@ resource privateDnsZoneVnetLink 'Microsoft.Network/privateDnsZones/virtualNetwor
 }
 
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
-  name: 'plan-quickelevate-${environmentName}'
+  name: 'plan-quickelevate-prod'
   location: location
   kind: 'functionapp'
   sku: {
@@ -128,12 +216,42 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   location: location
   kind: 'functionapp,linux'
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
   }
+  dependsOn: [
+    storageBlobOwnerAssignment
+    storageBlobContributorAssignment
+    storageQueueContributorAssignment
+    storageTableContributorAssignment
+    deploymentContainer
+  ]
   properties: {
     serverFarmId: functionPlan.id
     httpsOnly: true
     publicNetworkAccess: 'Disabled'
+    functionAppConfig: {
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${storage.properties.primaryEndpoints.blob}${deploymentContainerName}'
+          authentication: {
+            type: 'UserAssignedIdentity'
+            userAssignedIdentityResourceId: identity.id
+          }
+        }
+      }
+      runtime: {
+        name: 'dotnet-isolated'
+        version: '8.0'
+      }
+      scaleAndConcurrency: {
+        maximumInstanceCount: 100
+        instanceMemoryMB: 2048
+      }
+    }
     siteConfig: {
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
@@ -144,7 +262,18 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 resource functionSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   parent: functionApp
   name: 'appsettings'
+  dependsOn: [
+    keyVaultCryptoUserAssignment
+    metricsPublisherAssignment
+    signingKey
+  ]
   properties: {
+    AzureWebJobsStorage__blobServiceUri: storage.properties.primaryEndpoints.blob
+    AzureWebJobsStorage__queueServiceUri: storage.properties.primaryEndpoints.queue
+    AzureWebJobsStorage__tableServiceUri: storage.properties.primaryEndpoints.table
+    AzureWebJobsStorage__credential: 'managedidentity'
+    AzureWebJobsStorage__clientId: identity.properties.clientId
+    AZURE_CLIENT_ID: identity.properties.clientId
     FUNCTIONS_EXTENSION_VERSION: '~4'
     FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
     TENANT_ID: tenantId
@@ -156,6 +285,7 @@ resource functionSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     GRANT_AUDIENCE: 'com.quickelevate.helper'
     KEY_VAULT_SIGNING_KEY_ID: signingKey.properties.keyUriWithVersion
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+    APPLICATIONINSIGHTS_AUTHENTICATION_STRING: 'ClientId=${identity.properties.clientId};Authorization=AAD'
   }
 }
 
@@ -199,6 +329,7 @@ output apiBaseUrl string = 'https://${functionApp.properties.defaultHostName}'
 output functionAppName string = functionApp.name
 output quickElevateVnetId string = vnet.id
 output privateEndpointSubnetId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)
-output managedIdentityPrincipalId string = functionApp.identity.principalId
+output managedIdentityPrincipalId string = identity.properties.principalId
+output managedIdentityClientId string = identity.properties.clientId
 output keyVaultSigningKeyId string = signingKey.properties.keyUriWithVersion
 output requiredGraphPermission string = 'GroupMember.ReadBasic.All (application permission, tenant admin consent required)'

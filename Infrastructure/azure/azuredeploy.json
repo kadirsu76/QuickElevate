@@ -1,30 +1,37 @@
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-  "contentVersion": "0.1.0.0",
+  "contentVersion": "0.2.0.0",
   "metadata": {
-    "description": "QuickElevate private Azure Function pilot infrastructure. Deploy application code and complete Entra/Graph post-deployment steps separately."
+    "description": "QuickElevate private Flex Consumption Function infrastructure. The template creates all Azure resources. It requires only the target Entra security group object ID."
   },
   "parameters": {
-    "tenantId": {
-      "type": "string",
-      "metadata": { "description": "Microsoft Entra tenant ID allowed to call the authorization API." }
-    },
     "securityGroupObjectId": {
       "type": "string",
-      "metadata": { "description": "Required immutable object ID of the Entra security group checked by the backend." }
+      "metadata": {
+        "description": "Immutable object ID of the Microsoft Entra security group checked by the authorization backend."
+      }
     }
   },
   "variables": {
     "location": "[resourceGroup().location]",
+    "tenantId": "[subscription().tenantId]",
     "suffix": "[toLower(uniqueString(resourceGroup().id))]",
     "storageName": "[concat('stqe', variables('suffix'))]",
     "planName": "plan-quickelevate-prod",
     "keyVaultName": "[concat('kvqe', variables('suffix'))]",
+    "identityName": "[concat('id-quickelevate-', variables('suffix'))]",
     "appInsightsName": "[concat('appi-quickelevate-', variables('suffix'))]",
     "vnetName": "vnet-quickelevate-prod",
     "privateEndpointSubnetName": "snet-private-endpoints",
+    "deploymentContainerName": "[concat('function-package-', variables('suffix'))]",
     "functionAppName": "[concat('func-quickelevate-', variables('suffix'))]",
-    "privateDnsZoneName": "privatelink.azurewebsites.net"
+    "privateDnsZoneName": "privatelink.azurewebsites.net",
+    "storageBlobDataOwnerRoleId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b",
+    "storageBlobDataContributorRoleId": "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
+    "storageQueueDataContributorRoleId": "974c5e8b-45b9-4653-ba55-5f855dd0fb88",
+    "storageTableDataContributorRoleId": "0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3",
+    "monitoringMetricsPublisherRoleId": "3913510d-42f4-4e42-8a64-420c390055eb",
+    "keyVaultCryptoUserRoleId": "12338af0-0e69-4776-bea7-57ae8d297424"
   },
   "resources": [
     {
@@ -44,6 +51,12 @@
       }
     },
     {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('identityName')]",
+      "location": "[variables('location')]"
+    },
+    {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2023-05-01",
       "name": "[variables('storageName')]",
@@ -51,10 +64,20 @@
       "sku": { "name": "Standard_LRS" },
       "kind": "StorageV2",
       "properties": {
+        "accessTier": "Hot",
         "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false,
+        "defaultToOAuthAuthentication": true,
         "minimumTlsVersion": "TLS1_2",
-        "publicNetworkAccess": "Enabled"
+        "supportsHttpsTrafficOnly": true
       }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/default/{1}', variables('storageName'), variables('deploymentContainerName'))]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"],
+      "properties": { "publicAccess": "None" }
     },
     {
       "type": "Microsoft.Insights/components",
@@ -62,10 +85,7 @@
       "name": "[variables('appInsightsName')]",
       "location": "[variables('location')]",
       "kind": "web",
-      "properties": {
-        "Application_Type": "web",
-        "DisableLocalAuth": true
-      }
+      "properties": { "Application_Type": "web", "DisableLocalAuth": true }
     },
     {
       "type": "Microsoft.KeyVault/vaults",
@@ -73,7 +93,7 @@
       "name": "[variables('keyVaultName')]",
       "location": "[variables('location')]",
       "properties": {
-        "tenantId": "[parameters('tenantId')]",
+        "tenantId": "[variables('tenantId')]",
         "enableRbacAuthorization": true,
         "enablePurgeProtection": true,
         "enableSoftDelete": true,
@@ -94,6 +114,81 @@
       }
     },
     {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageBlobDataOwnerRoleId'))]",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataOwnerRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageBlobDataContributorRoleId'))]",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]", "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataContributorRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageQueueDataContributorRoleId'))]",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]", "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageQueueDataContributorRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageTableDataContributorRoleId'))]",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]", "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageTableDataContributorRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('keyVaultCryptoUserRoleId'))]",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+      "dependsOn": ["[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]", "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('keyVaultCryptoUserRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.Insights/components', variables('appInsightsName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('monitoringMetricsPublisherRoleId'))]",
+      "scope": "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+      "dependsOn": ["[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]", "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('monitoringMetricsPublisherRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
       "type": "Microsoft.Network/privateDnsZones",
       "apiVersion": "2024-06-01",
       "name": "[variables('privateDnsZoneName')]",
@@ -104,7 +199,7 @@
       "apiVersion": "2024-06-01",
       "name": "[format('{0}/{1}', variables('privateDnsZoneName'), 'quickelevate-vnet-link')]",
       "location": "global",
-      "dependsOn": ["[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]"],
+      "dependsOn": ["[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]", "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"],
       "properties": {
         "registrationEnabled": false,
         "virtualNetwork": { "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]" }
@@ -125,12 +220,38 @@
       "name": "[variables('functionAppName')]",
       "location": "[variables('location')]",
       "kind": "functionapp,linux",
-      "identity": { "type": "SystemAssigned" },
-      "dependsOn": ["[resourceId('Microsoft.Web/serverfarms', variables('planName'))]"],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageName'), 'default', variables('deploymentContainerName'))]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageBlobDataOwnerRoleId')))]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageBlobDataContributorRoleId')))]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageQueueDataContributorRoleId')))]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('storageTableDataContributorRoleId')))]"
+      ],
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
         "httpsOnly": true,
         "publicNetworkAccess": "Disabled",
+        "functionAppConfig": {
+          "deployment": {
+            "storage": {
+              "type": "blobContainer",
+              "value": "[concat(reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-05-01').primaryEndpoints.blob, variables('deploymentContainerName'))]",
+              "authentication": {
+                "type": "UserAssignedIdentity",
+                "userAssignedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+              }
+            }
+          },
+          "runtime": { "name": "dotnet-isolated", "version": "8.0" },
+          "scaleAndConcurrency": { "maximumInstanceCount": 100, "instanceMemoryMB": 2048 }
+        },
         "siteConfig": { "minTlsVersion": "1.2", "ftpsState": "Disabled" }
       }
     },
@@ -141,12 +262,19 @@
       "dependsOn": [
         "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
         "[resourceId('Microsoft.KeyVault/vaults/keys', variables('keyVaultName'), 'elevation-grant')]",
-        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('keyVaultCryptoUserRoleId')))]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Insights/components', variables('appInsightsName')), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId, variables('monitoringMetricsPublisherRoleId')))]"
       ],
       "properties": {
+        "AzureWebJobsStorage__blobServiceUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-05-01').primaryEndpoints.blob]",
+        "AzureWebJobsStorage__queueServiceUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-05-01').primaryEndpoints.queue]",
+        "AzureWebJobsStorage__tableServiceUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-05-01').primaryEndpoints.table]",
+        "AzureWebJobsStorage__credential": "managedidentity",
+        "AzureWebJobsStorage__clientId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').clientId]",
+        "AZURE_CLIENT_ID": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').clientId]",
         "FUNCTIONS_EXTENSION_VERSION": "~4",
         "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
-        "TENANT_ID": "[parameters('tenantId')]",
+        "TENANT_ID": "[variables('tenantId')]",
         "GROUP_OBJECT_ID": "[parameters('securityGroupObjectId')]",
         "MEMBERSHIP_MODE": "Transitive",
         "DEFAULT_ELEVATION_SECONDS": "60",
@@ -154,7 +282,8 @@
         "GRANT_ISSUER": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2024-04-01').defaultHostName)]",
         "GRANT_AUDIENCE": "com.quickelevate.helper",
         "KEY_VAULT_SIGNING_KEY_ID": "[reference(resourceId('Microsoft.KeyVault/vaults/keys', variables('keyVaultName'), 'elevation-grant'), '2023-07-01').properties.keyUriWithVersion]",
-        "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+        "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]",
+        "APPLICATIONINSIGHTS_AUTHENTICATION_STRING": "[concat('ClientId=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').clientId, ';Authorization=AAD')]"
       }
     },
     {
@@ -191,19 +320,12 @@
     }
   ],
   "outputs": {
-    "apiBaseUrl": {
-      "type": "string",
-      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2024-04-01').defaultHostName)]"
-    },
+    "apiBaseUrl": { "type": "string", "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2024-04-01').defaultHostName)]" },
+    "functionAppName": { "type": "string", "value": "[variables('functionAppName')]" },
     "quickElevateVnetId": { "type": "string", "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]" },
     "privateEndpointSubnetId": { "type": "string", "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('privateEndpointSubnetName'))]" },
-    "managedIdentityPrincipalId": {
-      "type": "string",
-      "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2024-04-01', 'Full').identity.principalId]"
-    },
-    "requiredGraphPermission": {
-      "type": "string",
-      "value": "GroupMember.ReadBasic.All (application permission, tenant admin consent required)"
-    }
+    "managedIdentityPrincipalId": { "type": "string", "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]" },
+    "managedIdentityClientId": { "type": "string", "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').clientId]" },
+    "requiredGraphPermission": { "type": "string", "value": "GroupMember.ReadBasic.All (application permission, tenant admin consent required)" }
   }
 }

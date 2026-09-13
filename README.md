@@ -36,21 +36,20 @@ QuickElevate macOS app
 Select **Deploy to Azure** above. The template creates the Azure infrastructure required for the pilot architecture:
 
 - Azure Function Flex Consumption plan and Function App
-- System-assigned Managed Identity
+- User-assigned Managed Identity
 - Inbound Private Endpoint for the Function App
 - `privatelink.azurewebsites.net` private DNS zone and endpoint DNS zone group
 - Key Vault and an RSA signing key
 - Application Insights
 - Function settings, including the required security group object ID
 
-The form requires only these two values:
+The form requires only this value:
 
 | Parameter | Description |
 | --- | --- |
-| `tenantId` | Microsoft Entra tenant ID. |
 | `securityGroupObjectId` | Immutable object ID of the Entra security group. |
 
-The template automatically creates its own VNet, private endpoint subnet, Function App, storage account, Key Vault, Application Insights instance, private endpoint, and private DNS zone. The Function App is created with `publicNetworkAccess=Disabled`.
+The template automatically uses the Azure subscription tenant and creates its own VNet, private endpoint subnet, Function App, stable user-assigned Managed Identity, storage account/deployment container, Key Vault/RSA signing key, Application Insights instance, private endpoint, and private DNS zone. The Function App is created with `publicNetworkAccess=Disabled`.
 
 After deployment, connect the output `quickElevateVnetId` to your GSA/VPN/private-DNS design. This keeps the quick form simple while allowing any supported corporate VPN product to reach the new private endpoint.
 
