@@ -49,6 +49,12 @@ if [[ -n "$APPLE_TEAM_ID" ]]; then
   echo "Apple Development signing aktif (Team ID: $APPLE_TEAM_ID)"
   ENTITLEMENTS_TMP="$(mktemp -t quickelevate-entitlements).plist"
   sed "s/@APPLE_TEAM_ID@/$APPLE_TEAM_ID/g" "$ROOT_DIR/deploy/QuickElevate.entitlements.template" > "$ENTITLEMENTS_TMP"
+  if ! plutil -lint "$ENTITLEMENTS_TMP" >/dev/null; then
+    echo "HATA: uretilen entitlements dosyasi gecersiz:"
+    plutil -lint "$ENTITLEMENTS_TMP" || true
+    rm -f "$ENTITLEMENTS_TMP"
+    exit 1
+  fi
   SIGN_IDENTITY="$(security find-identity -v -p codesigning | grep "($APPLE_TEAM_ID)" | head -1 | sed -E 's/^[[:space:]]*[0-9]+\) ([A-F0-9]+) "(.*)".*/\2/')"
   if [[ -z "$SIGN_IDENTITY" ]]; then
     echo "HATA: Team ID $APPLE_TEAM_ID icin codesigning kimligi bulunamadi."

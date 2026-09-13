@@ -4,8 +4,7 @@
   QuickElevate entitlements template (local free-signing phase).
 
   Usage: the installer replaces @APPLE_TEAM_ID@ with the Apple Development
-  Personal Team ID, then signs the app with:
-    codesign --sign "Apple Development" --entitlements QuickElevate.entitlements
+  Personal Team ID, then signs the app using this file as entitlements.
 
   The keychain group below MUST match MSAL's default macOS cache group
   (com.microsoft.identity.universalstorage). MSAL verifies this entitlement
