@@ -36,6 +36,14 @@
                 <string>&lt;native-macos-app-client-id&gt;</string>
                                 <key>RequestTimeoutSeconds</key>
                                 <integer>15</integer>
+                                <key>GrantIssuer</key>
+                                <string>https://&lt;function-app-name&gt;.azurewebsites.net</string>
+                                <key>GrantAudience</key>
+                                <string>com.quickelevate.helper</string>
+                                <key>SigningKeyModulus</key>
+                                <string>&lt;key-vault-public-rsa-modulus-base64url&gt;</string>
+                                <key>SigningKeyExponent</key>
+                                <string>&lt;key-vault-public-rsa-exponent-base64url&gt;</string>
                                 <key>TenantId</key>
                                 <string>&lt;tenant-id&gt;</string>
                             </dict>

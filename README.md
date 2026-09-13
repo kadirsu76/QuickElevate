@@ -18,7 +18,7 @@ QuickElevate macOS app
 
 ## Status
 
-> **Alpha. Not production-ready.** The current macOS helper still includes the original local-only grant flow. Do not deploy the current package to users until the backend-signed grant, nonce, replay protection, local identity binding, Developer ID signing, notarization, and automated test work are completed.
+> **Alpha. Not production-ready.** The helper now fails closed for new elevation unless it receives a backend-signed grant. The remaining production work is reliable managed configuration deployment, local Entra-to-macOS identity binding, Developer ID signing, notarization, end-to-end tests, and security review.
 
 ## Design Goals
 

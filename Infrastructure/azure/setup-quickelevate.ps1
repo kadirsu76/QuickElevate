@@ -8,6 +8,8 @@ param(
     [Alias('app')]
     [string]$FunctionAppName,
 
+    [string]$KeyVaultName,
+
     [switch]$PublishFunctionCode
 )
 
@@ -70,11 +72,19 @@ Import-Module Microsoft.Graph.Authentication
 
 $account = & $az account show --output json | ConvertFrom-Json
 $tenantId = $account.tenantId
-    $functionApp = & $az functionapp show --resource-group $ResourceGroupName --name $FunctionAppName --output json | ConvertFrom-Json
+$functionApp = & $az functionapp show --resource-group $ResourceGroupName --name $FunctionAppName --output json | ConvertFrom-Json
 $managedIdentity = $functionApp.identity.userAssignedIdentities.PSObject.Properties.Value | Select-Object -First 1
 
 if (-not $managedIdentity.principalId) {
     throw 'The Function App does not have a user-assigned managed identity. Deploy the current infrastructure template first.'
+}
+
+if (-not $KeyVaultName) {
+    $keyVault = & $az resource list --resource-group $ResourceGroupName --resource-type 'Microsoft.KeyVault/vaults' --query '[0].name' --output tsv
+    if (-not $keyVault) {
+        throw 'No Key Vault was found in the resource group.'
+    }
+    $KeyVaultName = $keyVault
 }
 
 $apiDisplayName = "QuickElevate API - $FunctionAppName"
@@ -232,6 +242,25 @@ try {
         Remove-Item $publishPath, $zipPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 
+    $key = & $az resource show --ids "/subscriptions/$($account.id)/resourceGroups/$ResourceGroupName/providers/Microsoft.KeyVault/vaults/$KeyVaultName/keys/elevation-grant" --api-version 2023-07-01 --output json | ConvertFrom-Json
+    if (-not $key.properties.key.n -or -not $key.properties.key.e) {
+        throw 'The Key Vault RSA public key could not be read through Azure Resource Manager.'
+    }
+    $managedConfig = [ordered]@{
+        TenantId = $tenantId
+        NativeClientId = $nativeApplication.AppId
+        ApiAudience = "api://$($apiApplication.AppId)"
+        ApiBaseUrl = "https://$FunctionAppName.azurewebsites.net"
+        GrantIssuer = "https://$FunctionAppName.azurewebsites.net"
+        GrantAudience = 'com.quickelevate.helper'
+        SigningKeyModulus = $key.properties.key.n
+        SigningKeyExponent = $key.properties.key.e
+        RequestTimeoutSeconds = 15
+        MaximumElevationSeconds = 300
+    }
+    $configPath = Join-Path $PSScriptRoot "QuickElevate-Configuration.generated.json"
+    $managedConfig | ConvertTo-Json -Depth 4 | Set-Content -Path $configPath -Encoding utf8
+
     [pscustomobject]@{
         TenantId = $tenantId
         FunctionAppName = $FunctionAppName
@@ -241,6 +270,7 @@ try {
         ApiScope = "api://$($apiApplication.AppId)/$scopeName"
         ManagedIdentityPrincipalId = $managedIdentity.principalId
         ManagedIdentityClientId = $managedIdentity.clientId
+        IntuneConfigurationPath = $configPath
         NextStep = 'Configure VPN/GSA routing and private DNS, then publish Function code if -PublishFunctionCode was not used.'
     } | Format-List
 }

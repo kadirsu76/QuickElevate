@@ -15,6 +15,10 @@ APP_BIN="$APP_PATH/Contents/MacOS/QuickElevateApp"
 /usr/sbin/chown root:wheel /var/run/quickelevate
 /bin/chmod 755 /var/run/quickelevate
 
+/bin/mkdir -p "/Library/Application Support/QuickElevate"
+/usr/sbin/chown root:wheel "/Library/Application Support/QuickElevate"
+/bin/chmod 700 "/Library/Application Support/QuickElevate"
+
 /bin/launchctl bootstrap system "$LAUNCHD_PLIST"
 /bin/launchctl enable system/com.quickelevate.helper
 /bin/launchctl kickstart -k system/com.quickelevate.helper

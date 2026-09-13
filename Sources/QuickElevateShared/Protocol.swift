@@ -1,6 +1,7 @@
 import Foundation
 
 public enum ElevationAction: String, Codable {
+    case authorizationContext
     case grant
     case revoke
     case status
@@ -9,13 +10,20 @@ public enum ElevationAction: String, Codable {
 
 public struct ElevationRequest: Codable {
     public var action: ElevationAction
-    public var user: String
-    public var seconds: Int
+    public var authorizationToken: String?
+    public var signingKeyModulus: String?
+    public var signingKeyExponent: String?
 
-    public init(action: ElevationAction, user: String, seconds: Int = 0) {
+    public init(
+        action: ElevationAction,
+        authorizationToken: String? = nil,
+        signingKeyModulus: String? = nil,
+        signingKeyExponent: String? = nil
+    ) {
         self.action = action
-        self.user = user
-        self.seconds = seconds
+        self.authorizationToken = authorizationToken
+        self.signingKeyModulus = signingKeyModulus
+        self.signingKeyExponent = signingKeyExponent
     }
 }
 
@@ -24,12 +32,14 @@ public struct ElevationResponse: Codable {
     public var message: String
     public var isAdmin: Bool
     public var deadlineEpoch: TimeInterval?
+    public var nonce: String?
 
-    public init(ok: Bool, message: String, isAdmin: Bool, deadlineEpoch: TimeInterval?) {
+    public init(ok: Bool, message: String, isAdmin: Bool, deadlineEpoch: TimeInterval?, nonce: String? = nil) {
         self.ok = ok
         self.message = message
         self.isAdmin = isAdmin
         self.deadlineEpoch = deadlineEpoch
+        self.nonce = nonce
     }
 }
 

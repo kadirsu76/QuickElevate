@@ -1,0 +1,6 @@
+{
+  "grantIssuer": "https://<function-app-name>.azurewebsites.net",
+  "grantAudience": "com.quickelevate.helper",
+  "signingKeyModulus": "<key-vault-public-rsa-modulus-base64url>",
+  "signingKeyExponent": "<key-vault-public-rsa-exponent-base64url>"
+}

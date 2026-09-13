@@ -15,11 +15,159 @@ private struct PersistentState: Codable {
     var deadlineEpoch: TimeInterval
 }
 
+private struct HelperConfiguration: Decodable {
+    let grantIssuer: String
+    let grantAudience: String
+    let signingKeyModulus: String
+    let signingKeyExponent: String
+}
+
+private struct GrantClaims: Decodable {
+    let iss: String
+    let aud: String
+    let jti: String
+    let exp: TimeInterval
+    let uid: UInt32
+    let nonce: String
+    let action: String
+    let durationSeconds: Int
+
+    enum CodingKeys: String, CodingKey {
+        case iss, aud, jti, exp, uid, nonce, action
+        case durationSeconds = "duration_seconds"
+    }
+}
+
+private enum GrantVerificationError: LocalizedError {
+    case invalidFormat
+    case invalidSignature
+    case invalidClaims
+    case expired
+    case replayed
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidFormat: "authorization grant format is invalid"
+        case .invalidSignature: "authorization grant signature is invalid"
+        case .invalidClaims: "authorization grant claims are invalid"
+        case .expired: "authorization grant has expired"
+        case .replayed: "authorization grant was already used"
+        }
+    }
+}
+
+private final class GrantVerifier {
+    private let configurationURL = URL(fileURLWithPath: "/Library/Application Support/QuickElevate/grant-verifier.json")
+    private let replayURL = URL(fileURLWithPath: "/Library/Application Support/QuickElevate/consumed-grants.json")
+    private let queue = DispatchQueue(label: "com.quickelevate.helper.grants")
+
+    func verify(_ token: String, userUID: uid_t, expectedNonce: String) throws -> GrantClaims {
+        let config = try loadConfiguration()
+        let components = token.split(separator: ".", omittingEmptySubsequences: false)
+        guard components.count == 3,
+              let header = base64URLDecode(String(components[0])),
+              let payload = base64URLDecode(String(components[1])),
+              let signature = base64URLDecode(String(components[2])) else {
+            throw GrantVerificationError.invalidFormat
+        }
+
+        let headerObject = try JSONSerialization.jsonObject(with: header) as? [String: Any]
+        guard headerObject?["alg"] as? String == "RS256" else {
+            throw GrantVerificationError.invalidClaims
+        }
+
+        let publicKey = try makePublicKey(config: config)
+        let signedBytes = Data("\(components[0]).\(components[1])".utf8)
+        guard SecKeyVerifySignature(publicKey, .rsaSignatureMessagePKCS1v15SHA256, signedBytes as CFData, signature as CFData, nil) else {
+            throw GrantVerificationError.invalidSignature
+        }
+
+        let claims = try JSONDecoder().decode(GrantClaims.self, from: payload)
+        guard claims.iss == config.grantIssuer,
+              claims.aud == config.grantAudience,
+              claims.uid == UInt32(userUID),
+              claims.nonce == expectedNonce,
+              claims.action == "elevate",
+              claims.durationSeconds >= 5,
+              claims.durationSeconds <= 300 else {
+            throw GrantVerificationError.invalidClaims
+        }
+        guard claims.exp >= Date().timeIntervalSince1970 else {
+            throw GrantVerificationError.expired
+        }
+
+        try consume(jti: claims.jti, expiresAt: claims.exp)
+        return claims
+    }
+
+    private func loadConfiguration() throws -> HelperConfiguration {
+        let attributes = try FileManager.default.attributesOfItem(atPath: configurationURL.path)
+        guard let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue,
+              (attributes[.ownerAccountID] as? NSNumber)?.intValue == 0,
+              permissions & 0o022 == 0 else {
+            throw GrantVerificationError.invalidClaims
+        }
+        return try JSONDecoder().decode(HelperConfiguration.self, from: Data(contentsOf: configurationURL))
+    }
+
+    private func makePublicKey(config: HelperConfiguration) throws -> SecKey {
+        guard let modulus = base64URLDecode(config.signingKeyModulus),
+              let exponent = base64URLDecode(config.signingKeyExponent) else {
+            throw GrantVerificationError.invalidClaims
+        }
+        let der = rsaPublicKeyDER(modulus: modulus, exponent: exponent)
+        let attributes: [CFString: Any] = [
+            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+            kSecAttrKeyClass: kSecAttrKeyClassPublic,
+            kSecAttrKeySizeInBits: modulus.count * 8
+        ]
+        var error: Unmanaged<CFError>?
+        guard let key = SecKeyCreateWithData(der as CFData, attributes as CFDictionary, &error) else {
+            throw error?.takeRetainedValue() ?? GrantVerificationError.invalidClaims
+        }
+        return key
+    }
+
+    private func consume(jti: String, expiresAt: TimeInterval) throws {
+        try queue.sync {
+            var entries = (try? JSONDecoder().decode([String: TimeInterval].self, from: Data(contentsOf: replayURL))) ?? [:]
+            let now = Date().timeIntervalSince1970
+            entries = entries.filter { $0.value >= now }
+            guard entries[jti] == nil else { throw GrantVerificationError.replayed }
+            entries[jti] = expiresAt
+            let data = try JSONEncoder().encode(entries)
+            try data.write(to: replayURL, options: [.atomic])
+            chmod(replayURL.path, 0o600)
+        }
+    }
+
+    private func base64URLDecode(_ value: String) -> Data? {
+        let padded = value.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/") + String(repeating: "=", count: (4 - value.count % 4) % 4)
+        return Data(base64Encoded: padded)
+    }
+
+    private func rsaPublicKeyDER(modulus: Data, exponent: Data) -> Data {
+        func length(_ count: Int) -> Data {
+            if count < 128 { return Data([UInt8(count)]) }
+            let bytes = withUnsafeBytes(of: UInt32(count).bigEndian, Array.init).drop { $0 == 0 }
+            return Data([0x80 | UInt8(bytes.count)]) + Data(bytes)
+        }
+        func integer(_ value: Data) -> Data {
+            let normalized = value.first.map { $0 & 0x80 != 0 ? Data([0]) + value : value } ?? Data([0])
+            return Data([0x02]) + length(normalized.count) + normalized
+        }
+        let sequence = integer(modulus) + integer(exponent)
+        return Data([0x30]) + length(sequence.count) + sequence
+    }
+}
+
 private final class ElevationService {
     private let queue = DispatchQueue(label: "com.quickelevate.helper.state")
     private var deadlineEpoch: TimeInterval?
     private var elevatedUser: String?
     private var timer: DispatchSourceTimer?
+    private var pendingNonces: [String: (value: String, expiresAt: TimeInterval)] = [:]
+    private let grantVerifier = GrantVerifier()
     private let stateDirectory = URL(fileURLWithPath: "/Library/Application Support/QuickElevate", isDirectory: true)
     private let stateFile = URL(fileURLWithPath: "/Library/Application Support/QuickElevate/state.json")
 
@@ -39,13 +187,12 @@ private final class ElevationService {
     func handle(request: ElevationRequest, peer: PeerAudit) -> ElevationResponse {
         do {
             let peerUser = try usernameFromUID(peer.uid)
-            guard request.user == peerUser else {
-                throw NSError(domain: "QuickElevateHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "request user mismatch"])
-            }
             try validateConsoleUser(peerUser)
             let isAdminNow = isAdmin(user: peerUser)
 
             switch request.action {
+            case .authorizationContext:
+                return authorizationContext(for: peerUser, isAdmin: isAdminNow)
             case .ping:
                 return ElevationResponse(ok: true, message: "pong", isAdmin: isAdminNow, deadlineEpoch: deadlineForUser(peerUser))
 
@@ -58,7 +205,7 @@ private final class ElevationService {
                 )
 
             case .grant:
-                return grant(user: peerUser, seconds: request.seconds)
+                return grant(user: peerUser, peerUID: peer.uid, request: request)
 
             case .revoke:
                 return revoke(user: peerUser)
@@ -69,8 +216,32 @@ private final class ElevationService {
         }
     }
 
-    private func grant(user: String, seconds: Int) -> ElevationResponse {
-        let bounded = max(5, min(seconds == 0 ? SharedConfig.defaultElevationSeconds : seconds, 300))
+    private func authorizationContext(for user: String, isAdmin: Bool) -> ElevationResponse {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            return ElevationResponse(ok: false, message: "cannot create authorization nonce", isAdmin: isAdmin, deadlineEpoch: nil)
+        }
+        let nonce = Data(bytes).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        queue.sync {
+            pendingNonces[user] = (nonce, Date().timeIntervalSince1970 + 120)
+        }
+        return ElevationResponse(ok: true, message: "authorization context created", isAdmin: isAdmin, deadlineEpoch: deadlineForUser(user), nonce: nonce)
+    }
+
+    private func grant(user: String, peerUID: uid_t, request: ElevationRequest) -> ElevationResponse {
+        guard let token = request.authorizationToken, !token.isEmpty else {
+            return ElevationResponse(ok: false, message: "backend authorization is required", isAdmin: isAdmin(user: user), deadlineEpoch: deadlineForUser(user))
+        }
+        guard let pending = queue.sync(execute: { pendingNonces[user] }), pending.expiresAt >= Date().timeIntervalSince1970 else {
+            return ElevationResponse(ok: false, message: "authorization nonce expired", isAdmin: isAdmin(user: user), deadlineEpoch: deadlineForUser(user))
+        }
+        let claims: GrantClaims
+        do {
+            claims = try grantVerifier.verify(token, userUID: peerUID, expectedNonce: pending.value)
+        } catch {
+            return ElevationResponse(ok: false, message: error.localizedDescription, isAdmin: isAdmin(user: user), deadlineEpoch: deadlineForUser(user))
+        }
+        let bounded = claims.durationSeconds
 
         if let existingUser = queue.sync(execute: { elevatedUser }), existingUser != user {
             if !revokeIfPossible(user: existingUser) {
@@ -96,6 +267,7 @@ private final class ElevationService {
         queue.sync {
             elevatedUser = user
             deadlineEpoch = deadline
+            pendingNonces.removeValue(forKey: user)
             saveState()
             scheduleTimer(until: deadline, for: user)
         }
@@ -140,10 +312,10 @@ private final class ElevationService {
             guard let self else { return }
             if revokeIfPossible(user: user) {
                 logger.log("deadline reached, revoked admin from \(user, privacy: .public)")
+                self.clearState()
             } else {
                 logger.error("deadline reached but revoke failed for \(user, privacy: .public)")
             }
-            self.clearState()
         }
         timer = source
         source.resume()
@@ -170,7 +342,12 @@ private final class ElevationService {
         guard let user = elevatedUser, let deadline = deadlineEpoch else { return }
         let state = PersistentState(elevatedUser: user, deadlineEpoch: deadline)
         if let data = try? JSONEncoder().encode(state) {
-            try? data.write(to: stateFile, options: [.atomic])
+            do {
+                try data.write(to: stateFile, options: [.atomic])
+                chmod(stateFile.path, 0o600)
+            } catch {
+                logger.error("cannot persist elevation state: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 

@@ -15,7 +15,7 @@
 - Grant Managed Identity `GroupMember.Read.All` and tenant admin consent.
 - Build the helper signed-grant verifier, nonce issuance, replay store, and local Entra-to-macOS account binding.
 - Connect the app to the private API using PSSO/MSAL silent-only token acquisition. Do not add an interactive Entra login fallback.
-- Remove the unconditional local `.grant(user, seconds)` helper operation.
+- Validate the completed backend grant verifier with end-to-end Key Vault signed grants and remove any remaining legacy local grant compatibility paths.
 - Replace the socket transport with authenticated XPC or launchd socket activation.
 - Add unit and integration tests.
 - Build universal app/helper binaries, Developer ID sign all code, notarize the final PKG.

@@ -17,6 +17,8 @@ final class AppModel {
     private var deadlineEpoch: TimeInterval?
     private var timer: Timer?
     private var pollTimer: Timer?
+    private let silentTokenProvider = EntraSilentTokenProvider()
+    private let authorizationClient = ElevationAuthorizationClient()
 
     func startMonitoring() {
         timer?.invalidate()
@@ -38,7 +40,7 @@ final class AppModel {
     func refreshStatus() async {
         let previousAdmin = isAdmin
         do {
-            let response = try SocketTransport.send(.init(action: .status, user: NSUserName()))
+            let response = try SocketTransport.send(.init(action: .status))
             apply(response: response)
         } catch {
             statusText = "Helper ulasilamiyor"
@@ -57,28 +59,41 @@ final class AppModel {
 
     func requestElevation() async {
         do {
+            let configuration = try ManagedConfiguration.load()
             try await authenticateWithTouchIDOrPassword()
 
-            let response = try SocketTransport.send(
-                .init(action: .grant, user: NSUserName(), seconds: SharedConfig.defaultElevationSeconds)
+            let context = try SocketTransport.send(.init(action: .authorizationContext))
+            guard let nonce = context.nonce else {
+                throw NSError(domain: "QuickElevate", code: 3, userInfo: [NSLocalizedDescriptionKey: "Authorization context was not created."])
+            }
+            statusText = "Authorization is being checked"
+            let accessToken = try await silentTokenProvider.acquireToken(configuration: configuration)
+            let grant = try await authorizationClient.requestGrant(
+                configuration: configuration,
+                accessToken: accessToken,
+                nonce: nonce
             )
+            let response = try SocketTransport.send(.init(action: .grant, authorizationToken: grant))
+            guard response.ok else {
+                throw NSError(domain: "QuickElevate", code: 4, userInfo: [NSLocalizedDescriptionKey: response.message])
+            }
+
             let previous = isAdmin
             apply(response: response)
             applyDockIconAndBadge()
             notifyStatusChanged()
-
             if !previous && isAdmin {
                 notify(title: "QuickElevate", body: "Yonetici yetkisi basariyla verildi.")
             }
         } catch {
-            statusText = "Dogrulama veya yetki istegi basarisiz"
+            statusText = error.localizedDescription
             await refreshStatus()
         }
     }
 
     func revokeNow() async {
         do {
-            let response = try SocketTransport.send(.init(action: .revoke, user: NSUserName()))
+            let response = try SocketTransport.send(.init(action: .revoke))
             apply(response: response)
         } catch {
             statusText = "Yetki kaldirilamadi"
