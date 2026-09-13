@@ -1,0 +1,10 @@
+#!/bin/zsh
+set -euo pipefail
+
+LAUNCHD_PLIST="/Library/LaunchDaemons/com.quickelevate.helper.plist"
+
+if [[ -f "$LAUNCHD_PLIST" ]]; then
+  /bin/launchctl bootout system "$LAUNCHD_PLIST" >/dev/null 2>&1 || true
+fi
+
+exit 0

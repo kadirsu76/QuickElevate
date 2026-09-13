@@ -1,0 +1,22 @@
+#!/bin/zsh
+set -euo pipefail
+
+LAUNCHD_PLIST="/Library/LaunchDaemons/com.quickelevate.helper.plist"
+APP_PATH="/Applications/QuickElevate.app"
+APP_BIN="$APP_PATH/Contents/MacOS/QuickElevateApp"
+
+/usr/sbin/chown root:wheel "$LAUNCHD_PLIST"
+/bin/chmod 644 "$LAUNCHD_PLIST"
+
+/usr/sbin/chown -R root:wheel "$APP_PATH"
+/bin/chmod 755 "$APP_BIN"
+
+/bin/mkdir -p /var/run/quickelevate
+/usr/sbin/chown root:wheel /var/run/quickelevate
+/bin/chmod 755 /var/run/quickelevate
+
+/bin/launchctl bootstrap system "$LAUNCHD_PLIST"
+/bin/launchctl enable system/com.quickelevate.helper
+/bin/launchctl kickstart -k system/com.quickelevate.helper
+
+exit 0

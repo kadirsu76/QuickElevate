@@ -1,0 +1,10 @@
+.build/
+dist/
+*.pkg
+*.zip
+.DS_Store
+Backend/**/bin/
+Backend/**/obj/
+Infrastructure/azure/*.parameters.json
+Infrastructure/azure/.env
+Backend/**/local.settings.json

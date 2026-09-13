@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "prod" },
+    "privateEndpointSubnetId": { "value": "/subscriptions/<subscription-id>/resourceGroups/<network-rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<private-endpoint-subnet>" },
+    "tenantId": { "value": "<tenant-id>" },
+    "pimGroupObjectId": { "value": "<pim-security-group-object-id>" },
+    "membershipMode": { "value": "Transitive" },
+    "defaultElevationSeconds": { "value": 60 },
+    "maximumElevationSeconds": { "value": 300 },
+    "nativeClientId": { "value": "<native-macos-app-registration-client-id>" },
+    "apiApplicationId": { "value": "<backend-api-app-registration-client-id>" }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "TENANT_ID": "<tenant-id>",
+    "PIM_GROUP_OBJECT_ID": "<pim-group-object-id>",
+    "MEMBERSHIP_MODE": "Transitive",
+    "DEFAULT_ELEVATION_SECONDS": "60",
+    "MAXIMUM_ELEVATION_SECONDS": "300",
+    "GRANT_ISSUER": "https://quickelevate-api.example.internal",
+    "GRANT_AUDIENCE": "com.quickelevate.helper",
+    "KEY_VAULT_SIGNING_KEY_ID": "https://<vault>.vault.azure.net/keys/elevation-grant/<version>"
+  }
+}
