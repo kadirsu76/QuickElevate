@@ -11,9 +11,9 @@ The quick deployment creates a dedicated VNet (`10.250.0.0/16`) and Private Endp
 | Parameter | Purpose |
 | --- | --- |
 | `tenantId` | Microsoft Entra tenant ID. |
-| `groupObjectId` | Immutable Entra Object ID of the security group. |
+| `securityGroupObjectId` | Immutable Entra Object ID of the security group. |
 
-`groupObjectId` is mandatory. It stays in Function App configuration and is never received from the macOS client.
+`securityGroupObjectId` is mandatory. It stays in Function App configuration and is never received from the macOS client.
 
 `membershipMode` can be `Direct` or `Transitive`. `Transitive` accepts nested group membership. This is less strict than direct PIM membership and should be selected deliberately.
 

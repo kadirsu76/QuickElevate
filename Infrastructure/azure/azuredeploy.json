@@ -9,7 +9,7 @@
       "type": "string",
       "metadata": { "description": "Microsoft Entra tenant ID allowed to call the authorization API." }
     },
-    "groupObjectId": {
+    "securityGroupObjectId": {
       "type": "string",
       "metadata": { "description": "Required immutable object ID of the Entra security group checked by the backend." }
     }
@@ -147,7 +147,7 @@
         "FUNCTIONS_EXTENSION_VERSION": "~4",
         "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
         "TENANT_ID": "[parameters('tenantId')]",
-        "GROUP_OBJECT_ID": "[parameters('groupObjectId')]",
+        "GROUP_OBJECT_ID": "[parameters('securityGroupObjectId')]",
         "MEMBERSHIP_MODE": "Transitive",
         "DEFAULT_ELEVATION_SECONDS": "60",
         "MAXIMUM_ELEVATION_SECONDS": "300",

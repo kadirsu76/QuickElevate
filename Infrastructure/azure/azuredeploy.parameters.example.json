@@ -3,6 +3,6 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "tenantId": { "value": "<tenant-id>" },
-    "groupObjectId": { "value": "<security-group-object-id>" }
+    "securityGroupObjectId": { "value": "<security-group-object-id>" }
   }
 }

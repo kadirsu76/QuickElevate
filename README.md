@@ -48,7 +48,7 @@ The form requires only these two values:
 | Parameter | Description |
 | --- | --- |
 | `tenantId` | Microsoft Entra tenant ID. |
-| `groupObjectId` | Immutable object ID of the Entra security group. |
+| `securityGroupObjectId` | Immutable object ID of the Entra security group. |
 
 The template automatically creates its own VNet, private endpoint subnet, Function App, storage account, Key Vault, Application Insights instance, private endpoint, and private DNS zone. The Function App is created with `publicNetworkAccess=Disabled`.
 
