@@ -43,19 +43,16 @@ Select **Deploy to Azure** above. The template creates the Azure infrastructure 
 - Application Insights
 - Function settings, including the required PIM group object ID
 
-The form requires these values:
+The form requires only these two values:
 
 | Parameter | Description |
 | --- | --- |
-| `environmentName` | Short environment name, for example `dev`, `test`, or `prod`. |
-| `existingVnetResourceId` | Existing Azure VNet resource ID connected to the private DNS zone. |
-| `privateEndpointSubnetId` | Existing Azure VNet subnet resource ID for the Function private endpoint. |
 | `tenantId` | Microsoft Entra tenant ID. |
 | `pimGroupObjectId` | Immutable object ID of the PIM-managed Entra security group. |
-| `nativeClientId` | App registration client ID for the macOS native application. |
-| `apiApplicationId` | App registration client ID representing the backend API. |
 
-The Function App is created with `publicNetworkAccess=Disabled`. This means the deployment is intentionally not usable until VPN/GSA routing and private DNS are configured.
+The template automatically creates its own VNet, private endpoint subnet, Function App, storage account, Key Vault, Application Insights instance, private endpoint, and private DNS zone. The Function App is created with `publicNetworkAccess=Disabled`.
+
+After deployment, connect the output `quickElevateVnetId` to your GSA/VPN/private-DNS design. This keeps the quick form simple while allowing any supported corporate VPN product to reach the new private endpoint.
 
 The template does not create or grant Microsoft Entra tenant permissions. Complete the post-deployment steps in [Azure deployment](docs/azure-deployment.md).
 

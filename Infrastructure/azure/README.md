@@ -9,7 +9,7 @@ az deployment group create \
   --parameters @azuredeploy.parameters.json
 ```
 
-The required `pimGroupObjectId` is the immutable Entra Object ID for the PIM-managed security group. The backend keeps it in Function App settings. It is never accepted from the macOS app.
+The quick deployment form requests only `tenantId` and `pimGroupObjectId`. It creates a dedicated `10.250.0.0/16` VNet and `10.250.1.0/24` Private Endpoint subnet. The required `pimGroupObjectId` is the immutable Entra Object ID for the PIM-managed security group. The backend keeps it in Function App settings. It is never accepted from the macOS app.
 
 The public repository has an ARM JSON copy in `azuredeploy.json`; the README **Deploy to Azure** button opens that file in the Azure portal. Keep `azuredeploy.json` synchronized with `main.bicep` after changes.
 
@@ -18,7 +18,7 @@ The public repository has an ARM JSON copy in `azuredeploy.json`; the README **D
 1. Add Microsoft Graph `GroupMember.ReadBasic.All` as an **application** permission to the Function system-assigned Managed Identity.
 2. Grant tenant admin consent.
 3. Configure App Service Authentication/Easy Auth for the single-tenant API registration and allow only the native client ID.
-4. Connect the `privatelink.azurewebsites.net` private zone to corporate DNS through GSA/VPN routing and DNS forwarding.
+4. Connect the output `quickElevateVnetId` and `privateEndpointSubnetId` to corporate GSA/VPN routing. Forward `privatelink.azurewebsites.net` through the corporate DNS path.
 5. Confirm public access stays disabled and test from a non-VPN network.
 6. Deploy the Function code through an approved deployment path that can reach the private Function SCM endpoint.
 

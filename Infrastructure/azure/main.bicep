@@ -1,55 +1,42 @@
 targetScope = 'resourceGroup'
 
-@description('Azure region for all resources.')
-param location string = resourceGroup().location
-
-@description('Short lowercase environment suffix, for example dev, test, or prod.')
-@minLength(2)
-@maxLength(12)
-param environmentName string
-
-@description('Existing subnet resource ID used for the Function App inbound private endpoint.')
-param privateEndpointSubnetId string
-
-@description('Existing Azure VNet resource ID that contains the private endpoint subnet. It is linked to the private DNS zone.')
-param existingVnetResourceId string
-
-@description('Microsoft Entra tenant ID that can call the API.')
+@description('Microsoft Entra tenant ID allowed to call the authorization API.')
 param tenantId string
 
 @description('Immutable object ID of the PIM-managed Entra security group checked by the backend.')
 param pimGroupObjectId string
 
-@allowed([
-  'Direct'
-  'Transitive'
-])
-@description('Direct requires direct group membership. Transitive accepts nested group membership.')
-param membershipMode string = 'Transitive'
-
-@minValue(5)
-@maxValue(300)
-param defaultElevationSeconds int = 60
-
-@minValue(5)
-@maxValue(3600)
-param maximumElevationSeconds int = 300
-
-@description('Client ID of the Entra registration representing the native macOS app. Set after registering the client app.')
-param nativeClientId string
-
-@description('API application/client ID used as the Entra token audience.')
-param apiApplicationId string
-
-@description('A globally unique Function App name.')
-param functionAppName string = 'func-quickelevate-${environmentName}-${uniqueString(resourceGroup().id)}'
-
-var normalizedEnvironment = toLower(environmentName)
-var storageName = toLower('stqe${uniqueString(resourceGroup().id, environmentName)}')
-var keyVaultName = toLower('kv-qe-${normalizedEnvironment}-${uniqueString(resourceGroup().id)}')
-var appInsightsName = 'appi-quickelevate-${normalizedEnvironment}'
+var location = resourceGroup().location
+var suffix = toLower(uniqueString(resourceGroup().id))
+var environmentName = 'prod'
+var functionAppName = 'func-quickelevate-${suffix}'
+var storageName = 'stqe${suffix}'
+var keyVaultName = 'kvqe${suffix}'
+var appInsightsName = 'appi-quickelevate-${suffix}'
+var vnetName = 'vnet-quickelevate-${environmentName}'
+var privateEndpointSubnetName = 'snet-private-endpoints'
 var privateDnsZoneName = 'privatelink.azurewebsites.net'
-var signingKeyName = 'elevation-grant'
+
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
+  name: vnetName
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        '10.250.0.0/16'
+      ]
+    }
+    subnets: [
+      {
+        name: privateEndpointSubnetName
+        properties: {
+          addressPrefix: '10.250.1.0/24'
+          privateEndpointNetworkPolicies: 'Disabled'
+        }
+      }
+    ]
+  }
+}
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageName
@@ -60,9 +47,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
   properties: {
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: false
     minimumTlsVersion: 'TLS1_2'
-    publicNetworkAccess: 'Enabled'
   }
 }
 
@@ -94,7 +79,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
 resource signingKey 'Microsoft.KeyVault/vaults/keys@2023-07-01' = {
   parent: keyVault
-  name: signingKeyName
+  name: 'elevation-grant'
   properties: {
     kty: 'RSA'
     keySize: 2048
@@ -120,13 +105,13 @@ resource privateDnsZoneVnetLink 'Microsoft.Network/privateDnsZones/virtualNetwor
   properties: {
     registrationEnabled: false
     virtualNetwork: {
-      id: existingVnetResourceId
+      id: vnet.id
     }
   }
 }
 
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
-  name: 'plan-quickelevate-${normalizedEnvironment}'
+  name: 'plan-quickelevate-${environmentName}'
   location: location
   kind: 'functionapp'
   sku: {
@@ -164,15 +149,13 @@ resource functionSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
     TENANT_ID: tenantId
     PIM_GROUP_OBJECT_ID: pimGroupObjectId
-    MEMBERSHIP_MODE: membershipMode
-    DEFAULT_ELEVATION_SECONDS: string(defaultElevationSeconds)
-    MAXIMUM_ELEVATION_SECONDS: string(maximumElevationSeconds)
+    MEMBERSHIP_MODE: 'Transitive'
+    DEFAULT_ELEVATION_SECONDS: '60'
+    MAXIMUM_ELEVATION_SECONDS: '300'
     GRANT_ISSUER: 'https://${functionApp.properties.defaultHostName}'
     GRANT_AUDIENCE: 'com.quickelevate.helper'
     KEY_VAULT_SIGNING_KEY_ID: signingKey.properties.keyUriWithVersion
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-    QUICK_ELEVATE_NATIVE_CLIENT_ID: nativeClientId
-    QUICK_ELEVATE_API_APPLICATION_ID: apiApplicationId
   }
 }
 
@@ -181,7 +164,7 @@ resource privateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   location: location
   properties: {
     subnet: {
-      id: privateEndpointSubnetId
+      id: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)
     }
     privateLinkServiceConnections: [
       {
@@ -213,8 +196,9 @@ resource privateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneG
 }
 
 output apiBaseUrl string = 'https://${functionApp.properties.defaultHostName}'
-output apiAudience string = 'api://${apiApplicationId}'
-output privateEndpointId string = privateEndpoint.id
+output functionAppName string = functionApp.name
+output quickElevateVnetId string = vnet.id
+output privateEndpointSubnetId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)
 output managedIdentityPrincipalId string = functionApp.identity.principalId
 output keyVaultSigningKeyId string = signingKey.properties.keyUriWithVersion
 output requiredGraphPermission string = 'GroupMember.ReadBasic.All (application permission, tenant admin consent required)'

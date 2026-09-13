@@ -4,19 +4,14 @@
 
 The **Deploy to Azure** button provisions Azure infrastructure. It does not deploy Function code, create Microsoft Entra app registrations, grant Microsoft Graph permissions, create Conditional Access policies, or configure a VPN/GSA product. Those steps need tenant-level approval and are intentionally separate.
 
-The deployment requires an existing VNet and an existing subnet for the Function App private endpoint. The private endpoint subnet must have available addresses and must not be reused as an App Service/Function outbound VNet integration subnet.
+The quick deployment creates a dedicated VNet (`10.250.0.0/16`) and Private Endpoint subnet (`10.250.1.0/24`). After deployment, connect that VNet to your GSA/VPN and private DNS design. The private endpoint subnet must not be reused as an App Service/Function outbound VNet integration subnet.
 
 ## Required Parameters
 
 | Parameter | Purpose |
 | --- | --- |
-| `environmentName` | Namespaces Azure resources, for example `dev`, `test`, or `prod`. |
-| `existingVnetResourceId` | Existing VNet resource ID linked to the private DNS zone. |
-| `privateEndpointSubnetId` | Existing subnet used by the Function private endpoint. |
 | `tenantId` | Microsoft Entra tenant ID. |
 | `pimGroupObjectId` | Immutable Entra Object ID of the PIM security group. |
-| `nativeClientId` | Client ID of the macOS public/native Entra application. |
-| `apiApplicationId` | Client ID of the backend API Entra application. |
 
 `pimGroupObjectId` is mandatory. It stays in Function App configuration and is never received from the macOS client.
 
