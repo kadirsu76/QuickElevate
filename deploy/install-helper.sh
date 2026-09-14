@@ -72,6 +72,24 @@ if [[ -n "$APPLE_TEAM_ID" ]]; then
     exit 1
   fi
   echo "Not: Keychain erisim sorusu cikarsa 'Always Allow' secin."
+  # AMFI, restricted entitlement'li (keychain-access-groups) uygulamayi ancak
+  # Apple imzali provisioning profili gomuluyse calistirir. Profil, Xcode
+  # automatic signing ile uretilir (StubApp hedefine ayni Bundle ID ile).
+  PROVISIONPROFILE=""
+  for candidate in "$ROOT_DIR/deploy/build-stub/Debug/StubApp.app/Contents/embedded.provisionprofile" "$ROOT_DIR/deploy/build-stub/Release/StubApp.app/Contents/embedded.provisionprofile"; do
+    if [[ -f "$candidate" ]]; then
+      PROVISIONPROFILE="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$PROVISIONPROFILE" ]]; then
+    echo "HATA: provisioning profili bulunamadi."
+    echo "Xcode'da deploy/XcodeProfile/StubApp.xcodeproj acip Cmd+R ile bir kez calistirin, sonra kurulumu tekrarlayin."
+    rm -f "$ENTITLEMENTS_TMP"
+    exit 1
+  fi
+  echo "Provisioning profili: $PROVISIONPROFILE"
+  cp "$PROVISIONPROFILE" "$STAGE_DIR/QuickElevate.app/Contents/embedded.provisionprofile"
   codesign --force --sign "$SIGN_IDENTITY" "$STAGE_DIR/QuickElevate.app/Contents/Frameworks/MSAL.framework"
   codesign --force --entitlements "$ENTITLEMENTS_TMP" --sign "$SIGN_IDENTITY" "$STAGE_DIR/QuickElevate.app/Contents/MacOS/QuickElevateApp"
   codesign --force --entitlements "$ENTITLEMENTS_TMP" --sign "$SIGN_IDENTITY" "$STAGE_DIR/QuickElevate.app"
