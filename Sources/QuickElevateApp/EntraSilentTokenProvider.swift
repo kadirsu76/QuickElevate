@@ -9,7 +9,7 @@ enum EntraSilentTokenError: LocalizedError {
         switch self {
         case let .noPlatformSSOAccountFound(count):
             if count == 0 {
-                "No Platform SSO account found. Sign in to Company Portal first."
+                "No Platform SSO account found on this Mac. Sign in with your work account via Platform SSO."
             } else {
                 "Multiple SSO accounts found (\(count)). Keep a single work account on this Mac."
             }
@@ -17,6 +17,10 @@ enum EntraSilentTokenError: LocalizedError {
             message
         }
     }
+}
+
+struct DiscoveredAccount {
+    let account: MSALAccount
 }
 
 final class EntraSilentTokenProvider {
@@ -28,10 +32,16 @@ final class EntraSilentTokenProvider {
             authority: authority
         )
         let application = try MSALPublicClientApplication(configuration: msalConfiguration)
-        let accounts = try application.allAccounts()
 
-        guard accounts.count == 1, let account = accounts.first else {
-            throw EntraSilentTokenError.noPlatformSSOAccountFound(accounts.count)
+        // Platform SSO / Enterprise SSO extension accounts are visible here even
+        // when the user never signed in to Company Portal itself. `allAccounts()`
+        // only returns MSAL-cached accounts, so it misses pure-PSSO sessions.
+        let deviceAccounts = try await enumerateDeviceAccounts(application: application)
+        let candidates = deviceAccounts.filter(\.isSSOAccount)
+        let usable = candidates.isEmpty ? deviceAccounts : candidates
+
+        guard usable.count == 1, let account = usable.first else {
+            throw EntraSilentTokenError.noPlatformSSOAccountFound(usable.count)
         }
 
         let parameters = MSALSilentTokenParameters(scopes: [configuration.apiScope], account: account)
@@ -43,6 +53,22 @@ final class EntraSilentTokenProvider {
                     continuation.resume(returning: token)
                 } else {
                     let message = error?.localizedDescription ?? "Platform SSO token could not be acquired silently."
+                    continuation.resume(throwing: EntraSilentTokenError.unavailable(message))
+                }
+            }
+        }
+    }
+
+    private func enumerateDeviceAccounts(application: MSALPublicClientApplication) async throws -> [MSALAccount] {
+        let parameters = MSALAccountEnumerationParameters()
+        parameters.returnOnlySignedInAccounts = false
+
+        return try await withCheckedThrowingContinuation { continuation in
+            application.accountsFromDevice(for: parameters) { accounts, error in
+                if let accounts {
+                    continuation.resume(returning: accounts)
+                } else {
+                    let message = error?.localizedDescription ?? "Could not enumerate device accounts."
                     continuation.resume(throwing: EntraSilentTokenError.unavailable(message))
                 }
             }
