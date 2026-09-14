@@ -18,7 +18,6 @@ final class AppModel {
     private var timer: Timer?
     private var pollTimer: Timer?
     private let silentTokenProvider = EntraSilentTokenProvider()
-    private let authorizationClient = ElevationAuthorizationClient()
 
     func startMonitoring() {
         timer?.invalidate()
@@ -57,38 +56,18 @@ final class AppModel {
         }
     }
 
-    func requestElevation() async {
+    func probePlatformSSOIdentity() async -> PlatformSSOIdentity? {
         do {
             let configuration = try ManagedConfiguration.load()
-            try await authenticateWithTouchIDOrPassword()
-
-            let context = try SocketTransport.send(.init(action: .authorizationContext))
-            guard let nonce = context.nonce else {
-                throw NSError(domain: "QuickElevate", code: 3, userInfo: [NSLocalizedDescriptionKey: "Authorization context was not created: \(context.message)"])
-            }
-            statusText = "Authorization is being checked"
-            let accessToken = try await silentTokenProvider.acquireToken(configuration: configuration)
-            let grant = try await authorizationClient.requestGrant(
-                configuration: configuration,
-                accessToken: accessToken,
-                nonce: nonce
-            )
-            let response = try SocketTransport.send(.init(action: .grant, authorizationToken: grant))
-            guard response.ok else {
-                throw NSError(domain: "QuickElevate", code: 4, userInfo: [NSLocalizedDescriptionKey: response.message])
-            }
-
-            let previous = isAdmin
-            apply(response: response)
-            applyDockIconAndBadge()
-            notifyStatusChanged()
-            if !previous && isAdmin {
-                notify(title: "QuickElevate", body: "Yonetici yetkisi basariyla verildi.")
-            }
+            statusText = "Platform SSO identity is being read"
+            let identity = try await silentTokenProvider.discoverIdentity(configuration: configuration)
+            statusText = "Platform SSO identity found"
+            return identity
         } catch {
             statusText = error.localizedDescription
             applyDockIconAndBadge()
             notifyStatusChanged()
+            return nil
         }
     }
 

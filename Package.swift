@@ -25,6 +25,7 @@ let package = Package(
                 .product(name: "MSAL", package: "microsoft-authentication-library-for-objc")
             ],
             path: "Sources/QuickElevateApp",
+            exclude: ["Resources"],
             swiftSettings: [
                 .unsafeFlags(["-parse-as-library"])
             ]

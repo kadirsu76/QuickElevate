@@ -1,7 +1,7 @@
 import Foundation
 import MSAL
 
-enum EntraSilentTokenError: LocalizedError {
+enum PlatformSSOIdentityError: LocalizedError {
     case noPlatformSSOAccountFound(Int)
     case unavailable(String)
 
@@ -19,29 +19,46 @@ enum EntraSilentTokenError: LocalizedError {
     }
 }
 
-struct DiscoveredAccount {
-    let account: MSALAccount
+struct PlatformSSOIdentity {
+    let username: String?
+    let objectId: String
+    let tenantId: String
+    let isSSOAccount: Bool
 }
 
 final class EntraSilentTokenProvider {
-    func acquireToken(configuration: ManagedConfiguration) async throws -> String {
-        let authority = try MSALAADAuthority(url: URL(string: "https://login.microsoftonline.com/\(configuration.tenantId)")!)
-        let msalConfiguration = MSALPublicClientApplicationConfig(
-            clientId: configuration.nativeClientId,
-            redirectUri: nil,
-            authority: authority
-        )
-        let application = try MSALPublicClientApplication(configuration: msalConfiguration)
-
-        // Platform SSO / Enterprise SSO extension accounts are visible here even
-        // when the user never signed in to Company Portal itself. `allAccounts()`
-        // only returns MSAL-cached accounts, so it misses pure-PSSO sessions.
+    func discoverIdentity(configuration: ManagedConfiguration) async throws -> PlatformSSOIdentity {
+        let application = try makeApplication(configuration: configuration)
         let deviceAccounts = try await enumerateDeviceAccounts(application: application)
-        let candidates = deviceAccounts.filter(\.isSSOAccount)
-        let usable = candidates.isEmpty ? deviceAccounts : candidates
+        let ssoAccounts = deviceAccounts.filter(\.isSSOAccount)
+        let tenantAccounts = ssoAccounts.filter {
+            $0.homeAccountId?.tenantId?.caseInsensitiveCompare(configuration.tenantId) == .orderedSame
+        }
 
-        guard usable.count == 1, let account = usable.first else {
-            throw EntraSilentTokenError.noPlatformSSOAccountFound(usable.count)
+        guard tenantAccounts.count == 1,
+              let account = tenantAccounts.first,
+              let objectId = account.homeAccountId?.objectId,
+              let tenantId = account.homeAccountId?.tenantId else {
+            throw PlatformSSOIdentityError.noPlatformSSOAccountFound(tenantAccounts.count)
+        }
+
+        return PlatformSSOIdentity(
+            username: account.username,
+            objectId: objectId,
+            tenantId: tenantId,
+            isSSOAccount: account.isSSOAccount
+        )
+    }
+
+    func acquireToken(configuration: ManagedConfiguration) async throws -> String {
+        let application = try makeApplication(configuration: configuration)
+        let identity = try await discoverIdentity(configuration: configuration)
+
+        let accounts = try application.allAccounts()
+        guard let account = accounts.first(where: {
+            $0.homeAccountId?.objectId == identity.objectId && $0.homeAccountId?.tenantId == identity.tenantId
+        }) else {
+            throw PlatformSSOIdentityError.unavailable("PSSO identity was found, but no MSAL token cache account is available.")
         }
 
         let parameters = MSALSilentTokenParameters(scopes: [configuration.apiScope], account: account)
@@ -53,10 +70,20 @@ final class EntraSilentTokenProvider {
                     continuation.resume(returning: token)
                 } else {
                     let message = error?.localizedDescription ?? "Platform SSO token could not be acquired silently."
-                    continuation.resume(throwing: EntraSilentTokenError.unavailable(message))
+                    continuation.resume(throwing: PlatformSSOIdentityError.unavailable(message))
                 }
             }
         }
+    }
+
+    private func makeApplication(configuration: ManagedConfiguration) throws -> MSALPublicClientApplication {
+        let authority = try MSALAADAuthority(url: URL(string: "https://login.microsoftonline.com/\(configuration.tenantId)")!)
+        let msalConfiguration = MSALPublicClientApplicationConfig(
+            clientId: configuration.nativeClientId,
+            redirectUri: nil,
+            authority: authority
+        )
+        return try MSALPublicClientApplication(configuration: msalConfiguration)
     }
 
     private func enumerateDeviceAccounts(application: MSALPublicClientApplication) async throws -> [MSALAccount] {
@@ -69,7 +96,7 @@ final class EntraSilentTokenProvider {
                     continuation.resume(returning: accounts)
                 } else {
                     let message = error?.localizedDescription ?? "Could not enumerate device accounts."
-                    continuation.resume(throwing: EntraSilentTokenError.unavailable(message))
+                    continuation.resume(throwing: PlatformSSOIdentityError.unavailable(message))
                 }
             }
         }

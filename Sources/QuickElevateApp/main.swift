@@ -46,7 +46,7 @@ final class QuickElevateAgent: NSObject, NSApplicationDelegate, UNUserNotificati
         if model.isAdmin {
             menu.addItem(NSMenuItem(title: "Yetkiyi Simdi Birak", action: #selector(handleRevokeFromMenu), keyEquivalent: ""))
         } else {
-            menu.addItem(NSMenuItem(title: "60 sn Yetki Iste", action: #selector(handleRequestFromMenu), keyEquivalent: ""))
+            menu.addItem(NSMenuItem(title: "PSSO Kimligini Kontrol Et", action: #selector(handleRequestFromMenu), keyEquivalent: ""))
         }
 
         menu.addItem(.separator())
@@ -102,31 +102,26 @@ final class QuickElevateAgent: NSObject, NSApplicationDelegate, UNUserNotificati
             return
         }
 
-        let confirm = NSAlert()
-        confirm.messageText = "Yonetici Yetkisi Iste"
-        confirm.informativeText = "Bu bilgisayarda politika tarafindan onaylanan kisa sureli yonetici yetkisi almak istiyor musunuz?"
-        confirm.alertStyle = .warning
-        confirm.addButton(withTitle: "Yetki Iste")
-        confirm.addButton(withTitle: "Iptal")
-
-        guard confirm.runModal() == .alertFirstButtonReturn else {
-            return
-        }
-
         await requestFlow()
     }
 
     private func requestFlow() async {
-        await model.requestElevation()
-        refreshStatusUI()
-
-        if !model.isAdmin, model.statusText != "Hazir" {
+        guard let identity = await model.probePlatformSSOIdentity() else {
             let error = NSAlert()
-            error.messageText = "Yonetici Yetkisi Verilmedi"
+            error.messageText = "Platform SSO Kimligi Okunamadi"
             error.informativeText = model.statusText
             error.alertStyle = .warning
             error.addButton(withTitle: "Tamam")
             error.runModal()
+            return
         }
+        refreshStatusUI()
+
+        let result = NSAlert()
+        result.messageText = "Platform SSO Kimligi Bulundu"
+        result.informativeText = "UPN: \(identity.username ?? "<empty>")\nTenant ID: \(identity.tenantId)\nEntra User Object ID: \(identity.objectId)\nSSO Account: \(identity.isSSOAccount ? "true" : "false")\n\nBu probe admin yetkisi vermez ve Azure API cagirmaz."
+        result.alertStyle = .informational
+        result.addButton(withTitle: "Tamam")
+        result.runModal()
     }
 }
