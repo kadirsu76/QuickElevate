@@ -13,3 +13,5 @@ Backend/**/local.settings.json
 build-xcode/
 deploy/XcodeProfile/build/
 deploy/build-stub/
+*.xcworkspace/
+xcuserdata/
