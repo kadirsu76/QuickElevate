@@ -12,3 +12,4 @@ Infrastructure/azure/QuickElevate-Intune-postinstall.generated.sh
 Backend/**/local.settings.json
 build-xcode/
 deploy/XcodeProfile/build/
+deploy/build-stub/
