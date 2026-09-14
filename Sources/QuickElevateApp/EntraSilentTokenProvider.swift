@@ -2,13 +2,17 @@ import Foundation
 import MSAL
 
 enum EntraSilentTokenError: LocalizedError {
-    case noPlatformSSOAccount
+    case noPlatformSSOAccountFound(Int)
     case unavailable(String)
 
     var errorDescription: String? {
         switch self {
-        case .noPlatformSSOAccount:
-            "Platform SSO is not available for the current user. Complete Company Portal registration."
+        case let .noPlatformSSOAccountFound(count):
+            if count == 0 {
+                "No Platform SSO account found. Sign in to Company Portal first."
+            } else {
+                "Multiple SSO accounts found (\(count)). Keep a single work account on this Mac."
+            }
         case let .unavailable(message):
             message
         }
@@ -27,7 +31,7 @@ final class EntraSilentTokenProvider {
         let accounts = try application.allAccounts()
 
         guard accounts.count == 1, let account = accounts.first else {
-            throw EntraSilentTokenError.noPlatformSSOAccount
+            throw EntraSilentTokenError.noPlatformSSOAccountFound(accounts.count)
         }
 
         let parameters = MSALSilentTokenParameters(scopes: [configuration.apiScope], account: account)
